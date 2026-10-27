@@ -1,0 +1,1625 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Nükleer basınçlı kap üst kafa (düz kapak) analizi: tez ve makale ile APDL'de yapılan cıvatalı ve birleşik kapak analizlerinin karşılaştırması, 3D sonuç görüntüleyici, limit analizi ve normalizasyon.">
+<meta name="author" content="Muhammet Hanifi Dikici">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}</style>
+<title>Reaktör Üst Kafa Analizi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Yerleşim: çizim paftası. Üstte antet (başlık bloğu), altında geniş görsel bantlar; metin dar sütunda,
+   her bölümün solunda kısa bir pafta etiketi. Renkler: üç model = üç sabit seri rengi, geri kalan çelik griler. */
+:root {
+  --bg: #eceff1;
+  --paper: #f8f9fa;
+  --panel: #e2e7ea;
+  --ink: #11171b;
+  --ink-2: #444f57;
+  --ink-3: #66727b;
+  --line: #c4ccd1;
+  --line-2: #d9dfe2;
+  --viewer: #dce2e6;
+  --c-tez: #1baf7a;
+  --c-civ: #eb6834;
+  --c-bir: #2a78d6;
+  --focus: #11171b;
+  --f-disp: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Consolas, "Courier New", monospace;
+  --maxw: 1180px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1316; --paper: #151a1e; --panel: #1c2227; --ink: #e9edef; --ink-2: #b2bcc3; --ink-3: #87929a;
+    --line: #2d353b; --line-2: #222a30; --viewer: #182026;
+    --c-tez: #199e70; --c-civ: #d95926; --c-bir: #3987e5; --focus: #e9edef;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1316; --paper: #151a1e; --panel: #1c2227; --ink: #e9edef; --ink-2: #b2bcc3; --ink-3: #87929a;
+  --line: #2d353b; --line-2: #222a30; --viewer: #182026;
+  --c-tez: #199e70; --c-civ: #d95926; --c-bir: #3987e5; --focus: #e9edef;
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--f-body); font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+  -webkit-font-smoothing: antialiased;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: var(--maxw); margin: 0 auto; }
+h1, h2, h3 { font-family: var(--f-disp); font-weight: 600; line-height: 1.08; text-wrap: balance; margin: 0; letter-spacing: 0.005em; }
+h1 { font-size: clamp(2.4rem, 5.2vw, 4rem); font-weight: 700; }
+h2 { font-size: clamp(1.7rem, 3vw, 2.3rem); }
+h3 { font-size: 1.3rem; }
+p { margin: 0; }
+a { color: inherit; text-decoration-color: var(--ink-3); text-underline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+.mono { font-family: var(--f-mono); font-size: 0.86em; }
+.num { font-variant-numeric: tabular-nums; }
+.kicker { font-family: var(--f-mono); font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.muted { color: var(--ink-2); }
+.small { font-size: 0.88rem; }
+
+/* gezinme */
+.nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 9; background: var(--bg); border-bottom: 1px solid var(--line); margin: 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); }
+.nav-in { max-width: var(--maxw); margin: 0 auto; display: flex; gap: 4px; overflow-x: auto; padding: 8px max(16px, env(safe-area-inset-left, 0px)); scrollbar-width: none; }
+.nav-in::-webkit-scrollbar { display: none; }
+.nav a { white-space: nowrap; text-decoration: none; font-size: 0.86rem; color: var(--ink-2); padding: 5px 10px; border-radius: 4px; }
+.nav a:hover { background: var(--panel); color: var(--ink); }
+.nav .brand { font-family: var(--f-disp); font-weight: 600; font-size: 1.02rem; color: var(--ink); padding-right: 14px; }
+
+/* antet */
+.head { padding-block: 40px 28px; display: grid; gap: 28px; }
+.head-top { display: grid; gap: 14px; max-width: 820px; }
+.lede { font-size: 1.12rem; color: var(--ink-2); max-width: 68ch; }
+.antet { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--ink); background: var(--paper); }
+@media (max-width: 640px) { .antet { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.antet div { padding: 9px 12px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); min-width: 0; }
+.antet dt { font-family: var(--f-mono); font-size: 0.68rem; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-3); }
+.antet dd { margin: 2px 0 0; font-family: var(--f-mono); font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+.antet dl { margin: 0; display: contents; }
+
+/* model çipleri */
+.chip { display: inline-flex; align-items: center; gap: 7px; font-size: 0.86rem; font-weight: 500; white-space: nowrap; }
+.chip::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--dot, var(--ink-3)); box-shadow: 0 0 0 2px var(--paper); flex: none; }
+.chip.tez { --dot: var(--c-tez); }
+.chip.civ { --dot: var(--c-civ); }
+.chip.bir { --dot: var(--c-bir); }
+.chip.ref { --dot: var(--ink-3); }
+
+/* 3D görüntüleyici */
+.viewer-band { display: grid; grid-template-columns: minmax(0, 1fr) 330px; border: 1px solid var(--line); background: var(--paper); }
+@media (max-width: 900px) { .viewer-band { grid-template-columns: 1fr; } }
+.viewer { position: relative; background: var(--viewer); aspect-ratio: 4 / 4.6; max-width: 100%; min-height: 360px; overflow: hidden; touch-action: none; }
+@media (min-width: 901px) {
+  .viewer-band { height: clamp(560px, 80vh, 780px); }
+  .viewer { aspect-ratio: auto; height: 100%; min-height: 0; }
+  .side { overflow-y: auto; }
+}
+.viewer canvas { position: absolute; inset: 0; display: block; width: 100% !important; height: 100% !important; }
+.viewer-fallback { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: var(--viewer); }
+.viewer-fallback img { max-height: 100%; object-fit: contain; }
+.viewer-fallback p { position: absolute; bottom: 10px; left: 12px; right: 12px; font-size: 0.82rem; color: var(--ink-2); }
+.tools { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; flex-wrap: wrap; gap: 6px; pointer-events: none; }
+.seg { display: inline-flex; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 2px; pointer-events: auto; }
+.seg button, .tbtn { font: 500 0.82rem var(--f-body); color: var(--ink-2); background: transparent; border: 0; padding: 6px 10px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.seg button[aria-pressed="true"].civ-b::before, .seg button[aria-pressed="true"].bir-b::before { box-shadow: 0 0 0 2px var(--ink); }
+.civ-b::before, .bir-b::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--c-civ); }
+.bir-b::before { background: var(--c-bir); }
+.tbtn { background: var(--paper); border: 1px solid var(--line); pointer-events: auto; }
+.tbtn[aria-pressed="true"] { border-color: var(--ink); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.seg button:hover, .tbtn:hover { color: var(--ink); }
+.hint { position: absolute; left: 12px; bottom: 10px; font-size: 0.76rem; color: var(--ink-3); pointer-events: none; }
+.labels { position: absolute; inset: 0; pointer-events: none; }
+.hs { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 6px; background: transparent; border: 0; padding: 0; font: 500 0.74rem var(--f-body); color: var(--ink); transition: opacity .2s; }
+.hs .d { width: 12px; height: 12px; border-radius: 50%; background: var(--hc); box-shadow: 0 0 0 2px var(--paper), 0 0 0 3px var(--hc); flex: none; }
+.hs .t { background: var(--paper); border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hs .t { transition: transform .15s; }
+.hs.dim { opacity: 0.35; }
+.hs.dim .t { display: none; }
+.hs.off { display: none; }
+.labels.hide .hs .t { display: none; }
+.side { border-left: 1px solid var(--line); padding: 18px 18px 16px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+@media (max-width: 900px) { .side { border-left: 0; border-top: 1px solid var(--line); } }
+.side h3 { font-size: 1.35rem; }
+.side .intro { font-size: 0.9rem; color: var(--ink-2); }
+.hlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.hlist button { width: 100%; text-align: left; background: transparent; border: 0; border-top: 1px solid var(--line-2); padding: 8px 2px; cursor: pointer; color: var(--ink); font: inherit; display: grid; grid-template-columns: 12px minmax(0, 1fr); gap: 2px 10px; }
+.hlist button:hover { background: var(--panel); }
+.hlist .d { grid-column: 1; grid-row: 1; width: 10px; height: 10px; border-radius: 50%; background: var(--hc); margin-top: 6px; }
+.hlist b { grid-column: 2; grid-row: 1; font-weight: 600; font-size: 0.9rem; }
+.hlist .ds { grid-column: 2; font-size: 0.8rem; color: var(--ink-2); line-height: 1.45; }
+.hlist .v { grid-column: 2; font-family: var(--f-mono); font-size: 0.8rem; color: var(--ink); }
+
+/* bölümler */
+.sec { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 32px; padding-block: 56px 8px; border-top: 1px solid var(--line); margin-top: 48px; scroll-margin-top: 60px; }
+@media (max-width: 900px) { .sec { grid-template-columns: 1fr; gap: 16px; padding-block: 36px 0; margin-top: 36px; } }
+.sec-label { display: grid; gap: 8px; align-content: start; }
+.sec-label p { font-size: 0.9rem; color: var(--ink-2); }
+.sec-body { display: grid; gap: 24px; min-width: 0; }
+.prose { max-width: 70ch; display: grid; gap: 12px; }
+
+/* özet karşılaştırma */
+.cmp { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--line); background: var(--paper); }
+.cmp th, .cmp td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+.cmp thead th { font-weight: 500; border-bottom: 1px solid var(--ink); background: var(--paper); position: sticky; top: 0; }
+.cmp td.n { font-family: var(--f-mono); font-size: 0.86rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cmp td .sub { display: block; font-family: var(--f-body); font-size: 0.78rem; color: var(--ink-3); white-space: normal; }
+.cmp tbody th { font-weight: 500; min-width: 190px; }
+.cmp tr:last-child td, .cmp tr:last-child th { border-bottom: 0; }
+.big td.n { font-size: 1.05rem; }
+
+/* üç model kartları */
+.models { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); background: var(--paper); }
+@media (max-width: 860px) { .models { grid-template-columns: 1fr; } }
+.model { padding: 18px; border-right: 1px solid var(--line); display: grid; gap: 10px; align-content: start; min-width: 0; }
+.model:last-child { border-right: 0; }
+@media (max-width: 860px) { .model { border-right: 0; border-bottom: 1px solid var(--line); } .model:last-child { border-bottom: 0; } }
+.model ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 0.9rem; color: var(--ink-2); }
+.model .date { font-family: var(--f-mono); font-size: 0.76rem; color: var(--ink-3); }
+
+/* farklar: sizde / bende / etkisi */
+.diffs { display: grid; gap: 0; border: 1px solid var(--line); background: var(--paper); }
+.diff { display: grid; grid-template-columns: 180px repeat(3, minmax(0, 1fr)); gap: 18px; padding: 18px; border-bottom: 1px solid var(--line); }
+.diff:last-child { border-bottom: 0; }
+@media (max-width: 1000px) { .diff { grid-template-columns: 1fr; gap: 10px; } }
+.diff h3 { font-size: 1.25rem; }
+.diff .col { display: grid; gap: 4px; align-content: start; font-size: 0.9rem; min-width: 0; }
+.diff .col .kicker { display: flex; align-items: center; gap: 6px; }
+.diff .col .kicker::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--dot, var(--ink-3)); }
+.diff .col.siz { --dot: var(--c-tez); }
+.diff .col.ben { --dot: var(--c-civ); }
+
+/* hesap farkları */
+.calc { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); background: var(--paper); }
+@media (max-width: 860px) { .calc { grid-template-columns: 1fr; } }
+.calc article { padding: 18px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); display: grid; gap: 10px; align-content: start; min-width: 0; }
+.calc article:nth-child(2n) { border-right: 0; }
+@media (max-width: 860px) { .calc article { border-right: 0; } }
+.calc .eq { font-family: var(--f-mono); font-size: 0.86rem; background: var(--panel); padding: 8px 10px; border-radius: 4px; overflow-x: auto; white-space: nowrap; }
+.calc .eq.ok { border-left: 3px solid var(--c-bir); }
+.calc .eq.no { border-left: 3px solid var(--c-tez); }
+.typos { width: 100%; border-collapse: collapse; font-family: var(--f-mono); font-size: 0.84rem; }
+.typos td { padding: 4px 6px; border-bottom: 1px solid var(--line-2); }
+
+/* görsel çiftleri */
+.pairs-nav { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+.pairs-nav button { font: 500 0.84rem var(--f-body); white-space: nowrap; border: 1px solid var(--line); background: var(--paper); color: var(--ink-2); padding: 6px 11px; border-radius: 4px; cursor: pointer; }
+.pairs-nav button[aria-selected="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); background: var(--paper); }
+@media (max-width: 760px) { .pair { grid-template-columns: 1fr; } }
+.pair figure { margin: 0; padding: 12px; display: grid; gap: 8px; align-content: start; border-right: 1px solid var(--line); min-width: 0; }
+.pair figure:last-child { border-right: 0; }
+@media (max-width: 760px) { .pair figure { border-right: 0; border-bottom: 1px solid var(--line); } .pair figure:last-child { border-bottom: 0; } }
+.imgbtn { padding: 0; border: 1px solid var(--line-2); background: #fff; cursor: zoom-in; display: block; width: 100%; border-radius: 2px; }
+.imgbtn img { display: block; width: 100%; height: auto; }
+figcaption { font-size: 0.84rem; color: var(--ink-2); }
+.empty { display: grid; place-items: center; aspect-ratio: 4 / 3; border: 1px dashed var(--line); color: var(--ink-3); font-size: 0.9rem; padding: 16px; text-align: center; max-width: 100%; }
+.note { font-size: 0.86rem; color: var(--ink-2); border-left: 2px solid var(--line); padding-left: 10px; }
+
+/* grafikler */
+.chart { border: 1px solid var(--line); background: var(--paper); padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.chart-head { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: baseline; justify-content: space-between; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.ladder { display: grid; gap: 0; }
+.lrow { display: grid; grid-template-columns: minmax(150px, 290px) minmax(0, 1fr) 64px; gap: 12px; align-items: center; padding: 5px 0; border-radius: 3px; position: relative; }
+@media (max-width: 640px) { .lrow { grid-template-columns: minmax(0, 1fr) 56px; } .lrow .track { grid-column: 1 / -1; grid-row: 2; } }
+.lrow:hover, .lrow:focus-visible { background: var(--panel); }
+.lrow .lab { font-size: 0.86rem; display: flex; gap: 8px; align-items: center; min-width: 0; }
+.lrow .lab::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--sc); flex: none; }
+.lrow .val { font-family: var(--f-mono); font-size: 0.84rem; font-variant-numeric: tabular-nums; text-align: right; }
+.track { position: relative; height: 18px; background-image: repeating-linear-gradient(to right, var(--line-2) 0 1px, transparent 1px calc(100% * 2 / 13)); }
+.track .bar { position: absolute; left: 0; top: 8px; height: 2px; background: var(--sc); border-radius: 0 2px 2px 0; }
+.track .pt { position: absolute; top: 4px; width: 11px; height: 11px; margin-left: -5.5px; border-radius: 50%; background: var(--sc); box-shadow: 0 0 0 2px var(--paper); }
+.axis { display: grid; grid-template-columns: minmax(150px, 290px) minmax(0, 1fr) 64px; gap: 12px; }
+@media (max-width: 640px) { .axis { grid-template-columns: 1fr; } .axis > span:first-child, .axis > span:last-child { display: none; } }
+.axis .ticks { position: relative; height: 18px; font-family: var(--f-mono); font-size: 0.72rem; color: var(--ink-3); }
+.axis .ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.tip { position: absolute; z-index: 5; pointer-events: none; background: var(--ink); color: var(--paper); font-size: 0.8rem; line-height: 1.4; padding: 7px 9px; border-radius: 4px; max-width: 280px; }
+.pd-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 860px) { .pd-grid { grid-template-columns: 1fr; } }
+.pd { position: relative; min-width: 0; }
+.pd svg { display: block; width: 100%; height: auto; overflow: visible; }
+.pd svg text { font-family: var(--f-mono); font-size: 11px; fill: var(--ink-3); }
+.pd svg .ttl { font-family: var(--f-body); font-size: 13px; fill: var(--ink); font-weight: 500; }
+.pd svg .lbl { fill: var(--ink); font-size: 11px; }
+.circ svg { display: block; width: 100%; height: auto; max-width: 640px; }
+.circ svg text { font-family: var(--f-mono); font-size: 12px; fill: var(--ink); }
+.circ svg .s { fill: var(--ink-3); font-size: 11px; }
+
+/* normalizasyon */
+.formulas { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0; border: 1px solid var(--line); background: var(--paper); }
+.formulas div { padding: 12px 14px; border-right: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2); display: grid; gap: 3px; min-width: 0; }
+.formulas .f { font-family: var(--f-mono); font-size: 0.9rem; }
+.formulas .m { font-size: 0.82rem; color: var(--ink-2); }
+.figs3 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 760px) { .figs3 { grid-template-columns: 1fr; } }
+.figs3 figure { margin: 0; display: grid; gap: 6px; min-width: 0; }
+.figs3 figure.wide { grid-column: 1 / -1; }
+.key { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0; border: 1px solid var(--line); background: var(--paper); }
+.key div { padding: 14px 16px; border-right: 1px solid var(--line-2); display: grid; gap: 4px; min-width: 0; }
+.key b { font-family: var(--f-disp); font-size: 1.9rem; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+.key span { font-size: 0.86rem; color: var(--ink-2); }
+
+/* dikkat listesi */
+.points { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; border: 1px solid var(--line); background: var(--paper); }
+.points li { padding: 14px 18px; border-bottom: 1px solid var(--line-2); display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 16px; }
+.points li:last-child { border-bottom: 0; }
+@media (max-width: 760px) { .points li { grid-template-columns: 1fr; gap: 4px; } }
+.points b { font-weight: 600; }
+.points p { font-size: 0.92rem; color: var(--ink-2); }
+.paths { font-family: var(--f-mono); font-size: 0.84rem; background: var(--paper); border: 1px solid var(--line); padding: 12px 14px; overflow-x: auto; white-space: pre; user-select: all; }
+.foot { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 0.82rem; color: var(--ink-3); }
+
+/* sonuçlar 3D */
+.fe-band { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) 330px; border: 1px solid var(--line); background: var(--paper); }
+@media (max-width: 900px) { .fe-band { grid-template-columns: 1fr; } }
+.fe-view { position: relative; background: var(--viewer); aspect-ratio: 4 / 4.8; max-width: 100%; min-height: 380px; overflow: hidden; touch-action: none; }
+@media (min-width: 901px) {
+  .fe-band { height: clamp(600px, 84vh, 840px); }
+  .fe-view { aspect-ratio: auto; height: 100%; min-height: 0; }
+  .fe-side { overflow-y: auto; }
+}
+.fe-view canvas { position: absolute; inset: 0; display: block; width: 100% !important; height: 100% !important; cursor: crosshair; }
+.fe-load { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; color: var(--ink-2); font-size: 0.92rem; background: var(--viewer); }
+.fe-tools { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; flex-wrap: wrap; gap: 6px; pointer-events: none; }
+.fe-legend { position: absolute; left: 12px; bottom: 12px; width: min(360px, calc(100% - 24px)); background: var(--paper); border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px 6px; pointer-events: none; display: grid; gap: 4px; }
+.fe-legend .lg-t { font-size: 0.78rem; font-weight: 500; }
+.fe-legend .lg-b { display: flex; height: 12px; }
+.fe-legend .lg-b span { flex: 1; }
+.fe-legend .lg-b span.ov { flex: 0 0 18px; margin-left: 4px; }
+.fe-legend .lg-n { position: relative; height: 14px; margin-right: 22px; font-family: var(--f-mono); font-size: 0.64rem; color: var(--ink-2); }
+.fe-legend .lg-n span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.fe-legend .lg-o { position: absolute; right: -22px; top: 0; font-family: var(--f-mono); font-size: 0.64rem; color: var(--ink-2); }
+.fe-tip { position: absolute; z-index: 4; pointer-events: none; background: var(--ink); color: var(--paper); font-size: 0.8rem; line-height: 1.4; padding: 7px 9px; border-radius: 4px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fe-tip b { font-family: var(--f-mono); font-size: 0.92rem; }
+.fe-pinl { position: absolute; left: 0; top: 0; pointer-events: none; }
+.fe-pinl span { position: absolute; transform: translate(-50%, -50%); width: 20px; height: 20px; border-radius: 50%; background: var(--ink); color: var(--paper); font: 600 0.7rem var(--f-mono); display: grid; place-items: center; box-shadow: 0 0 0 2px var(--paper); }
+.fe-side { border-left: 1px solid var(--line); padding: 16px 16px 14px; display: grid; gap: 16px; align-content: start; min-width: 0; }
+@media (max-width: 900px) { .fe-side { border-left: 0; border-top: 1px solid var(--line); } }
+.fe-ctl { display: grid; gap: 6px; min-width: 0; }
+.fe-ctl label { font-size: 0.86rem; display: flex; justify-content: space-between; gap: 8px; }
+.fe-ctl output { font-family: var(--f-mono); font-size: 0.82rem; color: var(--ink); }
+.fe-ctl input[type="range"] { width: 100%; accent-color: var(--ink); }
+.fe-ctl .cb { justify-content: flex-start; align-items: center; gap: 8px; color: var(--ink-2); font-size: 0.84rem; cursor: pointer; }
+.fe-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.fe-presets button, .fe-mini { font: 500 0.8rem var(--f-body); border: 1px solid var(--line); background: var(--paper); color: var(--ink-2); padding: 5px 9px; border-radius: 4px; cursor: pointer; }
+.fe-presets button:hover, .fe-mini:hover { color: var(--ink); border-color: var(--ink-3); }
+.fe-max { font-size: 0.84rem; color: var(--ink-2); display: grid; gap: 6px; border-top: 1px solid var(--line-2); padding-top: 12px; }
+.fe-max b { color: var(--ink); font-family: var(--f-mono); font-weight: 500; }
+.fe-pinhead { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-top: 1px solid var(--line-2); padding-top: 12px; }
+.fe-pins { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.fe-pins th, .fe-pins td { text-align: left; padding: 5px 4px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+.fe-pins th { font-weight: 500; color: var(--ink-2); }
+.fe-pins { table-layout: fixed; }
+.fe-pins th:first-child, .fe-pins td:first-child { width: 26px; }
+.fe-pins td.n { font-family: var(--f-mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.fe-side { overflow-x: hidden; }
+.fe-pins .pn { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--ink); color: var(--paper); font: 600 0.66rem var(--f-mono); }
+.fe-pins .far { color: var(--ink-3); font-size: 0.7rem; display: block; }
+
+/* büyütme */
+.lb { position: fixed; inset: 0; z-index: 20; background: rgba(8, 11, 13, 0.86); display: grid; grid-template-rows: 1fr auto; padding: calc(16px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); gap: 10px; }
+.lb img { max-width: 100%; max-height: 100%; margin: auto; object-fit: contain; background: #fff; min-height: 0; }
+.lb-cap { color: #e9edef; font-size: 0.9rem; display: flex; justify-content: space-between; gap: 16px; align-items: center; max-width: var(--maxw); margin: 0 auto; width: 100%; }
+.lb button { font: 500 0.88rem var(--f-body); background: #e9edef; color: #11171b; border: 0; border-radius: 4px; padding: 7px 12px; cursor: pointer; flex: none; }
+</style>
+</head>
+<body>
+<nav class="nav" aria-label="Bölümler">
+  <div class="nav-in">
+    <a class="brand" href="#ozet">Reaktör üst kafa</a>
+    <a href="#sonuc3d">Sonuçlar 3D</a>
+    <a href="#modeller">Üç model</a>
+    <a href="#workbench">Workbench modeli</a>
+    <a href="#hesap">Hesap farkları</a>
+    <a href="#karsilastirma">Sonuç tablosu</a>
+    <a href="#gorseller">Görseller</a>
+    <a href="#limit">Limit analizi</a>
+    <a href="#normalizasyon">Normalizasyon</a>
+    <a href="#enerji">Güvenlik çemberi</a>
+    <a href="#dikkat">Dikkat noktaları</a>
+    <a href="#dosyalar">Sınırlamalar</a>
+  </div>
+</nav>
+
+<main class="wrap">
+  <header class="head" id="ozet">
+    <div class="head-top">
+      <span class="kicker">Tez ve makale ile APDL analizlerinin karşılaştırması · Ekim 2026</span>
+      <h1>Reaktör Üst Kafa Analizi</h1>
+      <p class="lede">Tezdeki Workbench modelini inceledim, kurulum hatalarını düzelttim ve kabı MAPDL'de iki kez çözdüm: önce gerçek tasarım gibi cıvatalı ve contalı, sonra kapak gövdeye kaynaklıymış gibi birleşik. Bu sayfa üç modelin farklarını, sayılarıyla ve görselleriyle bir arada gösteriyor.</p>
+      <div class="legend" aria-label="Model renkleri">
+        <span class="chip tez">Tez / Workbench (sizin)</span>
+        <span class="chip civ">APDL cıvatalı model</span>
+        <span class="chip bir">APDL birleşik kapak</span>
+      </div>
+    </div>
+    <dl class="antet" aria-label="Tasarım verileri">
+      <div><dt>Malzeme</dt><dd>SA-516 Gr.70</dd></div>
+      <div><dt>Akma σy</dt><dd>260 MPa</dd></div>
+      <div><dt>İç basınç p</dt><dd>0,597 MPa</dd></div>
+      <div><dt>E / ν</dt><dd>200 GPa / 0,30</dd></div>
+      <div><dt>Gövde</dt><dd>Di 900 × 10</dd></div>
+      <div><dt>Alt kafa</dt><dd>torisferik, t 12</dd></div>
+      <div><dt>Düz kapak</dt><dd>39 + 6 mm</dd></div>
+      <div><dt>Cıvata</dt><dd>40 × 3/4" · PCD 990</dd></div>
+    </dl>
+  </header>
+
+  <section class="viewer-band" aria-label="3D reaktör modeli">
+    <div class="viewer" id="viewer">
+      <div class="viewer-fallback" id="viewer-fallback" hidden>
+        <img src="img/g_reaktor_izometrik.png" alt="Reaktörün APDL geometri modeli, izometrik görünüş">
+        <p>Tarayıcı 3D görünümü açamadı. Yukarıda ana çizimin APDL görünüşü var.</p>
+      </div>
+      <div class="labels" id="labels"></div>
+      <div class="tools">
+        <div class="seg" role="group" aria-label="Model">
+          <button type="button" id="m-civ" class="civ-b" aria-pressed="true">Cıvatalı</button>
+          <button type="button" id="m-bir" class="bir-b" aria-pressed="false">Birleşik</button>
+        </div>
+        <button type="button" class="tbtn" id="t-cut" aria-pressed="false">Yarım kesit</button>
+        <button type="button" class="tbtn" id="t-exp" aria-pressed="false">Kapağı kaldır</button>
+        <button type="button" class="tbtn" id="t-lab" aria-pressed="true">Etiketler</button>
+        <button type="button" class="tbtn" id="t-home" aria-pressed="false">Görünümü sıfırla</button>
+      </div>
+      <p class="hint">Sürükle: döndür · Tekerlek / iki parmak: yakınlaştır · Sağ tık: kaydır</p>
+    </div>
+    <aside class="side" aria-live="polite">
+      <span class="kicker" id="side-k">Analiz modeli · 3D</span>
+      <h3 id="side-h">Cıvatalı model</h3>
+      <p class="intro" id="side-p"></p>
+      <ul class="hlist" id="hlist"></ul>
+    </aside>
+  </section>
+  <p class="small muted" style="margin-top:10px">3D model, analizdeki ölçülerle çizildi (gövde, torisferik alt kafa, flanş, düz kapak, P3 pedi, nozullar, 4 ayak). Ana çizimdeki yarım boru serpantin, izolasyon ve karıştırıcı analizde olmadığı için burada da yok. Etiketteki değerler 0,597 MPa'daki doğrusallaştırılmış gerilmelerdir.</p>
+
+  <div class="tbl-wrap" style="margin-top:28px">
+    <table class="cmp big">
+      <caption class="kicker" style="text-align:left;padding:12px 12px 0">Bir bakışta: üç modelin ana sonuçları</caption>
+      <thead><tr><th scope="col">Büyüklük</th><th scope="col"><span class="chip tez">Tez / Workbench</span></th><th scope="col"><span class="chip civ">Cıvatalı</span></th><th scope="col"><span class="chip bir">Birleşik</span></th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Kapakta en büyük birincil eğilme (Pm+Pb)</th><td class="n">—<span class="sub">doğrusallaştırma yok</span></td><td class="n">137,5 MPa<span class="sub">cıvata deliği bölgesi</span></td><td class="n">44,5 MPa<span class="sub">P3 pedi kenarı</span></td></tr>
+        <tr><th scope="row">En büyük yer değiştirme</th><td class="n">0,407 mm</td><td class="n">1,03 mm</td><td class="n">0,31 mm</td></tr>
+        <tr><th scope="row">Göçme (limit) basıncı</th><td class="n">—<span class="sub">hesaplanmamış</span></td><td class="n">4,09 MPa<span class="sub">kapak göçüyor</span></td><td class="n">6,33 MPa<span class="sub">gövdedeki 270° nozulları</span></td></tr>
+        <tr><th scope="row">TES / TI</th><td class="n">280 / 278 "MPa"<span class="sub">doğrusal veriden; birim de yanlış</span></td><td class="n">3,49 / 4,05 MPa</td><td class="n">5,54 / 6,30 MPa</td></tr>
+        <tr><th scope="row">En küçük emniyet katsayısı (σy'ye göre)</th><td class="n">3,05<span class="sub">σ1, tek düğüm tepe değeri</span></td><td class="n">1,89<span class="sub">doğrusallaştırılmış VM</span></td><td class="n">3,24<span class="sub">doğrusallaştırılmış VM</span></td></tr>
+        <tr><th scope="row">Alt kafa zar gerilmesi</th><td class="n">11,19 MPa<span class="sub">yarıçap hatası</span></td><td class="n">21,5 MPa</td><td class="n">21,5 MPa<span class="sub">teori 20,15</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+
+  <section class="sec" id="sonuc3d">
+    <div class="sec-label"><span class="kicker">Analiz sonucu</span><h2>Sonuçları 3D'de inceleyin</h2></div>
+    <div class="sec-body">
+      <div class="prose">
+        <p>İki modelin ince ağ çözümü (p = 0,597 MPa), ANSYS'teki düğüm değerleriyle: cıvatalı modelde 353 068, birleşik modelde 361 559 düğüm. Fareyle bir noktanın üzerine gelince o noktadaki değer görünür. Tıklayınca nokta sabitlenir ve aynı noktanın iki modeldeki değeri yan yana yazılır.</p>
+        <p class="small muted">Renkler ANSYS'teki gibi düğüm ortalamalı değerlerdir. Tekil köşelerdeki tepe değerler (conta ve dolgu köşeleri, boru–gövde birleşimleri) tasarım için kullanılmaz; doğrusallaştırılmış değerler yukarıdaki tablolarda.</p>
+      </div>
+    </div>
+    <div class="fe-band">
+      <div class="fe-view" id="fe-view">
+        <div class="fe-load" id="fe-load">Analiz verisi yükleniyor… (her model ≈4 MB)</div>
+        <div class="fe-pinl" id="fe-pinl"></div>
+        <div class="fe-tools">
+          <div class="seg" role="group" aria-label="Model">
+            <button type="button" class="civ-b" data-fe-model="civ" aria-pressed="true">Cıvatalı</button>
+            <button type="button" class="bir-b" data-fe-model="bir" aria-pressed="false">Birleşik</button>
+          </div>
+          <div class="seg" role="group" aria-label="Sonuç">
+            <button type="button" data-fe-res="seqv" aria-pressed="true">von Mises</button>
+            <button type="button" data-fe-res="s1" aria-pressed="false">σ1</button>
+            <button type="button" data-fe-res="usum" aria-pressed="false">Yer değiştirme</button>
+          </div>
+          <div class="seg" role="group" aria-label="Görünüm">
+            <button type="button" data-fe-half="0" aria-pressed="true">Tam</button>
+            <button type="button" data-fe-half="1" aria-pressed="false">Yarım kesit</button>
+          </div>
+        </div>
+        <div class="fe-legend" id="fe-legend"></div>
+        <div class="fe-tip" id="fe-tip" hidden></div>
+      </div>
+      <aside class="fe-side">
+        <div class="fe-ctl">
+          <label for="fe-def">Şekil değiştirme büyütmesi <output id="fe-def-o" for="fe-def">yok</output></label>
+          <input type="range" id="fe-def" min="0" max="1000" step="10" value="0">
+        </div>
+        <div class="fe-ctl">
+          <label for="fe-max">Renk ölçeği üst sınırı <output id="fe-max-o" for="fe-max"></output></label>
+          <input type="range" id="fe-max" min="10" max="250" step="5" value="100">
+          <label class="cb"><input type="checkbox" id="fe-auto"> Bu modele göre otomatik (%99,9 değeri)</label>
+          <label class="cb"><input type="checkbox" id="fe-band" checked> ANSYS gibi bantlı renkler</label>
+          <p class="small muted">Ölçek iki model için ortak; böylece renkler doğrudan karşılaştırılabilir. Üst sınırı aşan bölgeler gri.</p>
+        </div>
+        <div class="fe-ctl">
+          <span class="kicker">Hazır bakışlar</span>
+          <div class="fe-presets" id="fe-presets"></div>
+        </div>
+        <div class="fe-max" id="fe-maxinfo"></div>
+        <div class="fe-ctl">
+          <div class="fe-pinhead"><span class="kicker">Sabitlenen noktalar</span><button type="button" class="fe-mini" id="fe-clear">Temizle</button></div>
+          <table class="fe-pins" id="fe-pins" hidden><thead><tr><th>#</th><th>Parça</th><th>Cıvatalı</th><th>Birleşik</th></tr></thead><tbody></tbody></table>
+          <p class="small muted" id="fe-pins-empty">Model üzerinde bir noktaya tıklayın. Değerler her iki modelde aynı parçadaki en yakın düğümden okunur.</p>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="sec" id="modeller">
+    <div class="sec-label"><span class="kicker">Modeller</span><h2>Üç model</h2><p>Aynı kap, aynı malzeme ve aynı basınç. Farkı birleşimlerin, mesnedin ve yükün nasıl tanımlandığı yaratıyor.</p></div>
+    <div class="sec-body">
+      <div class="models">
+        <article class="model">
+          <span class="chip tez">Tez / Workbench</span>
+          <span class="date">Sizin çalışmanız · Aralık 2025 – Temmuz 2026</span>
+          <ul>
+            <li>≈1,1 milyon dörtyüzlü/altıyüzlü eleman.</li>
+            <li>37 temasın hepsi yapışık; kapak contaya yapıştırılmış.</li>
+            <li>40 cıvata ön yükü olmayan kiriş.</li>
+            <li>Raporda "Fixed Support" yazıyor; çözüm girdisinde mesnet yok.</li>
+            <li>Kapak basıncı ters işaretli.</li>
+            <li>Doğrusal elastik çözüm; TES/TI bu veriden.</li>
+          </ul>
+        </article>
+        <article class="model">
+          <span class="chip civ">APDL cıvatalı model</span>
+          <span class="date">15.10.2026 · Reaktor_APDL\analiz</span>
+          <ul>
+            <li>Süpürülmüş altıyüzlü ağ: 172 277 eleman (ince), ayrıca kaba ağ.</li>
+            <li>4 destek ayağı; taban radyal yönde serbest.</li>
+            <li>Basınç bütün ıslak yüzeylere normal yönde; kesik uçlara itme kuvveti.</li>
+            <li>Conta–kapak ayrılabilir temas; 40 BEAM188 cıvata, ≈33 kN ön yük.</li>
+            <li>ASME VIII-2 Bölüm 5 doğrusallaştırma ve elastik-tam plastik limit analizi.</li>
+          </ul>
+        </article>
+        <article class="model">
+          <span class="chip bir">APDL birleşik kapak</span>
+          <span class="date">19.10.2026 · Reaktor_APDL\analiz_birlesik_kapak</span>
+          <ul>
+            <li>Cıvatalı modelle aynı; yalnız kapak birleşimi farklı.</li>
+            <li>Conta yerine yapışık çelik dolgu halkası; 4 mm boşluk kapatıldı.</li>
+            <li>Cıvata, cıvata deliği ve ön yük yok.</li>
+            <li>181 764 eleman (ince); 27 çözüm: normalizasyon serileri ve GCI.</li>
+            <li>Kapağın kendi limiti için gövde elastik tutularak alt-model.</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="workbench">
+    <div class="sec-label"><span class="kicker">Model kurulumu</span><h2>Workbench modelinde bulunanlar</h2><p>Proje dosyasında (ds.dat) gördüklerim ve APDL modelinde bunun yerine yaptıklarım.</p></div>
+    <div class="sec-body">
+      <div class="diffs">
+        <div class="diff">
+          <h3>Mesnet</h3>
+          <div class="col siz"><span class="kicker">Sizde</span><p>Raporda alt yüzeylerde Fixed Support yazıyor, ama çözüm girdisinde hiç mesnet kısıtı yok. Destek ayakları modelden çıkarılmış.</p></div>
+          <div class="col ben"><span class="kicker">Bende</span><p>4 destek ayağı modellendi (takviye plakası, dikmeler, taban plakası). Taban plakası cıvata deliği çevresi çevresel ve düşey yönde tutuldu, radyal yön serbest.</p></div>
+          <div class="col"><span class="kicker">Etkisi</span><p>Fixed Support kabın basınçla genleşmesini engeller ve yapay eğilme gerilmesi üretir. Radyal serbest mesnet gerçeğe yakındır.</p></div>
+        </div>
+        <div class="diff">
+          <h3>Basınç</h3>
+          <div class="col siz"><span class="kicker">Sizde</span><p>Kapak iç yüzüne −0,597 MPa verilmiş; kapak ≈424 kN içeri çekiliyor. Alt kafanın bir kısmına −Y yönlü basınç vektörü. Yükler kendi içinde ≈520 kN dengesiz.</p></div>
+          <div class="col ben"><span class="kicker">Bende</span><p>0,597 MPa bütün ıslak yüzeylere yüzey normali doğrultusunda verildi. Kesik nozul uçlarına ve P3 açıklığına kapama itkisi eklendi.</p></div>
+          <div class="col"><span class="kicker">Kontrol</span><p>Yalnız iç basınçta mesnet tepkilerinin toplamı 33 N; kapak itme kuvveti 402 056 N. Fark %0,008.</p></div>
+        </div>
+        <div class="diff">
+          <h3>Temaslar ve cıvatalar</h3>
+          <div class="col siz"><span class="kicker">Sizde</span><p>37 temasın hepsi yapışık; kapak contaya yapışık ve ayrılamıyor. 40 cıvata ön yükü olmayan kiriş.</p></div>
+          <div class="col ben"><span class="kicker">Bende</span><p>Kaynaklar yapışık (MPC). Conta–kapak sürtünmesiz, ayrılabilir temas. 40 cıvata BEAM188, somun yüzüne RBE3; cıvata başına ≈33 kN ön yük.</p></div>
+          <div class="col"><span class="kicker">Etkisi</span><p>Kapak conta dış kenarı çevresinde dönüyor: çökme 1,03 mm (sizde 0,41). Basınç altında cıvata kuvveti 33 kN'dan 23 kN'a iniyor. Ankastre plaka teorisi ≈0,27 mm, basit mesnetli ≈1,1 mm verir.</p></div>
+        </div>
+        <div class="diff">
+          <h3>Ağ ve çözüm</h3>
+          <div class="col siz"><span class="kicker">Sizde</span><p>≈1,1 milyon eleman, dengesiz dağılım: kapakta 536 654, flanşta 215 309, alt kafada 9 746. Aralık 2025 koşusu bellek yetmezliğiyle durmuş (15 GB gerekli, 14,6 GB var); Temmuz 2026 çıktısı boş.</p></div>
+          <div class="col ben"><span class="kicker">Bende</span><p>Gövde ve kafada kalınlık boyunca 3 (ince) / 2 (kaba) eleman. İnce ağ 172 277 eleman / 353 068 düğüm, bu bilgisayarda ≈13 dk.</p></div>
+          <div class="col"><span class="kicker">Etkisi</span><p>Proje dosyasında rapordaki sayıları veren tamamlanmış bir çözüm yok. İki ağ karşılaştırıldı: genel büyüklükler %1, yerel sıcak noktalar %10–15 içinde.</p></div>
+        </div>
+        <div class="diff">
+          <h3>Yoğunluk ve conta</h3>
+          <div class="col siz"><span class="kicker">Sizde</span><p>Yoğunluk 7,85 t/mm³ (kabın kütlesi ≈9·10⁸ ton). Conta çelik, E = 200 GPa.</p></div>
+          <div class="col ben"><span class="kicker">Bende</span><p>7,85·10⁻⁹ t/mm³. Conta sizinkiyle aynı tutuldu (çelik).</p></div>
+          <div class="col"><span class="kicker">Etkisi</span><p>Ağırlık yükü olmadığı için yoğunluk sonucu etkilemiyordu. Gerçek conta çok daha yumuşak; bu her iki analizin de sınırlaması.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="hesap">
+    <div class="sec-label"><span class="kicker">Tez ve makale</span><h2>Hesap ve yöntem farkları</h2><p>Model kurulumundan bağımsız olarak tez metnindeki hesaplarda gördüklerim.</p></div>
+    <div class="sec-body">
+      <div class="calc">
+        <article>
+          <h3>Alt kafa gerilmesi</h3>
+          <p class="small muted">Tezde kafa, yarıçapı 450 mm olan bir yarıküre gibi hesaplanmış. Kafa torisferik; tepe eğrilik yarıçapı 810 mm.</p>
+          <div class="eq no">Tez: σ = p·r/(2t) = 0,597·450/24 = 11,19 MPa</div>
+          <div class="eq ok">Doğrusu: σ = p·R/(2t) = 0,597·810/24 = 20,15 MPa · FE 21,5</div>
+          <p class="small muted">Tezdeki değer yaklaşık yarısı. Aynı hata Δr = 0,0176 mm için de geçerli (R = 810 ile ≈0,057 mm).</p>
+        </article>
+        <article>
+          <h3>Emniyet katsayısı</h3>
+          <p class="small muted">Tezdeki değer asal gerilmeye ve tek bir düğümdeki tepe değere dayanıyor. Tekil noktalardaki tepe değerler ağ inceldikçe büyür.</p>
+          <div class="eq no">Tez: n = σy / σ1,max = 260 / 85,349 = 3,05</div>
+          <div class="eq ok">APDL: σy / (Pm+Pb)VM → cıvatalı 1,89 · birleşik 3,24</div>
+          <p class="small muted">Akma kontrolü von Mises ile ve kalınlık boyunca doğrusallaştırılmış gerilmeyle (Pm, Pb) yapılır (ASME VIII-2 Bölüm 5).</p>
+        </article>
+        <article>
+          <h3>TES ve TI</h3>
+          <p class="small muted">Doğrusal çözümde P–Δ eğrisi düz bir doğrudur; iki kat elastik eğim doğrusu ya da teğet kesişimi bir limit tanımlamaz. TES ve TI bir yük verir, burada basınç; gerilme değil.</p>
+          <div class="eq no">Tez: TES / TI = 280 / 278 "MPa"</div>
+          <div class="eq ok">Elastik-tam plastik: 3,49 / 4,05 MPa (cıvatalı) · 5,54 / 6,30 MPa (birleşik)</div>
+        </article>
+        <article>
+          <h3>Ağ bağımsızlığı</h3>
+          <p class="small muted">Tezde ve makalede ağ yakınsaması belgelenmemiş. Cıvatalı modelde iki ağ karşılaştırıldı; birleşik modelde üç ağla GCI hesaplandı.</p>
+          <div class="eq ok">GCI: gerilme %3,7 · çökme %3,4 · limit basıncı %0,5</div>
+        </article>
+        <article>
+          <h3>Ondalık yazımlar</h3>
+          <p class="small muted">Tezde birkaç sayının ondalık yazımı bozuk.</p>
+          <table class="typos">
+            <tbody>
+              <tr><td>13.432.5 MPa</td><td>→ 13,4325 MPa</td></tr>
+              <tr><td>0.051.38 mm</td><td>→ 0,05138 mm</td></tr>
+              <tr><td>0.042.98 mm</td><td>→ 0,04298 mm</td></tr>
+              <tr><td>0.017.63 mm</td><td>→ 0,01763 mm</td></tr>
+              <tr><td>0.086.06 mm/MPa</td><td>→ 0,08606 mm/MPa</td></tr>
+              <tr><td>0.407.26 mm</td><td>→ 0,40726 mm</td></tr>
+            </tbody>
+          </table>
+        </article>
+        <article>
+          <h3>Makaledeki basınç senaryoları</h3>
+          <p class="small muted">Makaledeki 5,78 MPa (akma başlangıcı, σy·t/r) ve 12,3 MPa (yırtılma) yalnız silindirik gövde için geçerli. Kap bütün olarak bunlardan önce başka bir yerden sınıra ulaşıyor.</p>
+          <div class="eq ok">Cıvatalı: conta ≈1,1 MPa'da açılıyor, kapak 4,09 MPa'da göçüyor</div>
+          <div class="eq ok">Birleşik: nozullar çevresinde 6,33 MPa'da göçme</div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="karsilastirma">
+    <div class="sec-label"><span class="kicker">Sayılar</span><h2>Sonuç karşılaştırması</h2><p>p = 0,597 MPa, ince ağ. Gerilmeler MPa, von Mises (aksi yazılmadıkça).</p></div>
+    <div class="sec-body">
+      <div class="tbl-wrap">
+        <table class="cmp">
+          <thead><tr><th scope="col">Büyüklük</th><th scope="col"><span class="chip tez">Tez / Makale</span></th><th scope="col"><span class="chip civ">Cıvatalı</span></th><th scope="col"><span class="chip bir">Birleşik</span></th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Gövde σθ (orta bölge)</th><td class="n">26,865<span class="sub">teori p·r/t</span></td><td class="n">26,78</td><td class="n">26,86</td></tr>
+            <tr><th scope="row">Gövde σz</th><td class="n">13,43<span class="sub">ince cidar</span></td><td class="n">13,12</td><td class="n">13,30<span class="sub">Lamé 13,285</span></td></tr>
+            <tr><th scope="row">Gövde von Mises / emniyet</th><td class="n">23,27 / 11,18</td><td class="n">23,45 / 11,09</td><td class="n">23,45 / 11,09</td></tr>
+            <tr><th scope="row">Gövde radyal genleşme</th><td class="n">0,05138 mm</td><td class="n">0,05265 mm</td><td class="n">0,05267 mm<span class="sub">Lamé 0,05256; 12 açı ortalaması</span></td></tr>
+            <tr><th scope="row">Alt kafa zar gerilmesi</th><td class="n">11,19</td><td class="n">21,5</td><td class="n">21,47<span class="sub">teori 20,15</span></td></tr>
+            <tr><th scope="row">En büyük VM (düğüm, tepe)</th><td class="n">68,915</td><td class="n">195<span class="sub">conta kenarı, tekil</span></td><td class="n">100,6<span class="sub">K2 borusu köşesi, tekil; gövde 76,9</span></td></tr>
+            <tr><th scope="row">En büyük σ1 (düğüm, tepe)</th><td class="n">85,349</td><td class="n">≈136<span class="sub">kapak</span></td><td class="n">97,3<span class="sub">dolgu köşesi, tekil; kapak 60,4</span></td></tr>
+            <tr><th scope="row">En büyük yer değiştirme</th><td class="n">0,40726 mm</td><td class="n">1,027 mm</td><td class="n">0,311 mm</td></tr>
+            <tr><th scope="row">Kapak orta bölgesi Pm+Pb (x = −100)</th><td class="n">—</td><td class="n">97,7</td><td class="n">43,6</td></tr>
+            <tr><th scope="row">Kapakta en büyük Pm+Pb</th><td class="n">—</td><td class="n">137,5<span class="sub">cıvata deliği</span></td><td class="n">44,5<span class="sub">ped kenarı</span></td></tr>
+            <tr><th scope="row">Gövde–flanş birleşimi PL / PL+Pb</th><td class="n">—</td><td class="n">53,7 / 107,8</td><td class="n">21,6 / 47,6</td></tr>
+            <tr><th scope="row">Kafa knuckle PL+Pb</th><td class="n">—</td><td class="n">36,6</td><td class="n">36,6</td></tr>
+            <tr><th scope="row">K2 nozulu, delik kenarından 5 mm</th><td class="n">—</td><td class="n">34,4</td><td class="n">34,3</td></tr>
+            <tr><th scope="row">En yüksek doğrusallaştırılmış</th><td class="n">—</td><td class="n">137,5<span class="sub">kapak, cıvata deliği</span></td><td class="n">80,3<span class="sub">gövde, K2 deliği kenarı</span></td></tr>
+            <tr><th scope="row">En küçük emniyet</th><td class="n">3,05<span class="sub">σ1 tepe</span></td><td class="n">1,89</td><td class="n">3,24</td></tr>
+            <tr><th scope="row">Cıvata kuvveti</th><td class="n">—<span class="sub">ön yük yok</span></td><td class="n">33,1 → 23,2 kN</td><td class="n">yok</td></tr>
+            <tr><th scope="row">Conta</th><td class="n">yapışık</td><td class="n">≈1,1 MPa'da açılıyor</td><td class="n">yok</td></tr>
+            <tr><th scope="row">Kap limit basıncı</th><td class="n">—</td><td class="n">4,09 MPa<span class="sub">kapak</span></td><td class="n">6,33 MPa<span class="sub">gövde, 270° nozulları</span></td></tr>
+            <tr><th scope="row">TES / TI</th><td class="n">280 / 278 "MPa"</td><td class="n">3,49 / 4,05 MPa</td><td class="n">5,54 / 6,30 MPa</td></tr>
+            <tr><th scope="row">λ = P_L / p</th><td class="n">—</td><td class="n">6,8</td><td class="n">10,6</td></tr>
+            <tr><th scope="row">Kapağın kendi limiti</th><td class="n">—</td><td class="n">4,09<span class="sub">kap limitiyle aynı</span></td><td class="n">9,13 MPa<span class="sub">gövde elastik tutularak</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">ASME VIII-2 Bölüm 5 elastik kontrolü (S = 138 MPa; 1,5S = 207; 3S = 414) iki APDL modelinde de sağlanıyor. Cıvatalı modelde en büyük PL+Pb 137,5 ≤ 207; birleşikte 80,3 ≤ 207.</p>
+    </div>
+  </section>
+
+  <section class="sec" id="gorseller">
+    <div class="sec-label"><span class="kicker">Görseller</span><h2>Aynı görünüş, iki model</h2><p>Soldaki cıvatalı, sağdaki birleşik kapak. Renk ölçekleri resimden resme değişiyor; her resmin altındaki skala çubuğunu okuyun. Büyütmek için resme tıklayın.</p></div>
+    <div class="sec-body">
+      <div class="pairs-nav" role="tablist" aria-label="Görünüş seçimi" id="pairs-nav"></div>
+      <div class="pair" id="pair" role="tabpanel"></div>
+      <p class="note" id="pair-note"></p>
+    </div>
+  </section>
+
+  <section class="sec" id="limit">
+    <div class="sec-label"><span class="kicker">Göçme</span><h2>Limit analizi</h2><p>σy = 260 MPa elastik-tam plastik malzeme, basınç adım adım artırılarak. Limit basıncı, son yakınsayan adımdaki basınçtır.</p></div>
+    <div class="sec-body">
+      <div class="chart" id="ladder-box">
+        <div class="chart-head">
+          <h3>Basınç merdiveni</h3>
+          <div class="legend"><span class="chip tez">Tez / makale</span><span class="chip civ">Cıvatalı</span><span class="chip bir">Birleşik</span><span class="chip ref">Referans</span></div>
+        </div>
+        <p class="small muted">Her değerin ne olduğu satırın üzerine gelince açılır. Tezdeki TES/TI (280/278 "MPa") bir gerilme gibi verildiği için bu basınç ekseninde yer alamıyor.</p>
+        <div class="axis"><span></span><div class="ticks" id="ladder-ticks"></div><span></span></div>
+        <div class="ladder" id="ladder"></div>
+      </div>
+
+      <div class="chart">
+        <div class="chart-head"><h3>Göçen bölgenin P–Δ eğrisi</h3><span class="small muted">İki panelde aynı basınç ekseni</span></div>
+        <p class="small muted">TES: eğrinin, eğimi elastik eğimin yarısı olan doğruyla kesiştiği basınç (iki kat elastik eğim yöntemi). TI: elastik doğru ile eğrinin son bölümüne uydurulan doğrunun kesişimi. İkisi de bir basınçtır.</p>
+        <div class="pd-grid">
+          <div class="pd" id="pd-civ"></div>
+          <div class="pd" id="pd-bir"></div>
+        </div>
+      </div>
+
+      <div class="prose">
+        <p><b>Cıvatalı model.</b> Göçme üst kafada. 3,90 MPa'da P3 pedinin kenarı boyunca hilal biçimli bir plastik mafsal bölgesi oluşuyor, 4,09 MPa'da ped dışındaki kapağın neredeyse tamamı akıyor. Gövde ve alt kafa bu basınca kadar büyük ölçüde elastik. Conta–kapak teması ise ≈1,1 MPa'da açılıyor; bu yapısal göçme değil, sızdırmazlık sınırı.</p>
+        <p><b>Birleşik kapak.</b> Kapak artık zayıf nokta değil. 5,97 MPa'da akma yalnız gövdenin 270° tarafındaki takviyesiz radyal nozulların (K1A, K1B) çevresinde; 6,33 MPa'da gövde ve alt kafa geniş ölçüde plastik. Kapak bu basınçta neredeyse elastik (en büyük plastik birim şekil değiştirme %0,6). Kapağın kendi dayanımını ölçmek için gövdeyi elastik tutunca kapak 9,13 MPa'ya kadar taşıyor.</p>
+        <p class="small muted">Değerlendirme: ASME III NB-3228.3 / Ek II-1430 mantığıyla izin verilen basınç ≤ 2/3·P_TES → cıvatalıda 2,33 MPa, birleşikte 3,69 MPa. İkisi de 0,597 MPa'nın üstünde.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="normalizasyon">
+    <div class="sec-label"><span class="kicker">Birleşik kapak</span><h2>Normalizasyon</h2><p>Kapak sonuçlarını boyutsuz hale getirip açıklık oranı ve kalınlık oranıyla nasıl değiştiklerine baktım (üst alt-model, 27 çözüm).</p></div>
+    <div class="sec-body">
+      <div class="key">
+        <div><b class="num">Π<sub>L</sub> ≈ 3,28</b><span>Kapalı kapakta boyutsuz limit basıncı, kalınlıktan bağımsız (±%2). von Mises ankastre plaka ≈3,1–3,25.</span></div>
+        <div><b class="num">C ≈ 0,176</b><span>Elastik eşdeğer kapak katsayısı (β/4). ASME UG-34'te kaynaklı düz kafa için C = 0,17.</span></div>
+        <div><b class="num">1 − 0,5·d/D</b><span>Pedsiz P3 açıklığının limit basıncına etkisi. Mevcut ped kaybı fazlasıyla karşılıyor (1,13).</span></div>
+        <div><b class="num">GCI ≤ %3,7</b><span>Üç ağla yakınsama: gerilme %3,7, çökme %3,4, limit %0,5.</span></div>
+      </div>
+      <div class="formulas" aria-label="Tanımlar">
+        <div><span class="f">σ_ref = p·a²/t²</span><span class="m">a = 463 mm (basınçlı alan yarıçapı), t = 45 mm (39 plaka + 6 çıkıntı)</span></div>
+        <div><span class="f">β = σ_b / σ_ref</span><span class="m">σ_b: kapakta en büyük Pm+Pb (von Mises). C_eff = β/4</span></div>
+        <div><span class="f">Π_L = P_L·a²/(σy·t²)</span><span class="m">Boyutsuz limit basıncı. Basit mesnet 1,5 (Tresca) / 1,63 (VM), ankastre 2,815 / ≈3,1–3,25</span></div>
+        <div><span class="f">w* = W·E·t³/(p·a⁴)</span><span class="m">Boyutsuz çökme. Ankastre 0,171, basit mesnet 0,696</span></div>
+        <div><span class="f">K = σ / (p·r/t)</span><span class="m">Gövde zar gerilmesine (26,865 MPa) göre yığılma katsayısı</span></div>
+        <div><span class="f">λ = P_L / p</span><span class="m">Limit yük çarpanı: cıvatalı 6,8 · birleşik 10,6 · kapak 15,3</span></div>
+      </div>
+
+      <div class="tbl-wrap">
+        <table class="cmp">
+          <caption class="kicker" style="text-align:left;padding:12px 12px 0">A serisi · P3 açıklık oranı d/D (pedsiz, kapalı kapağa göre)</caption>
+          <thead><tr><th scope="col">d [mm]</th><th scope="col">d/D</th><th scope="col">σ_b / σ_b0</th><th scope="col">W / W0</th><th scope="col">P_L [MPa]</th><th scope="col">P_L / P_L0</th><th scope="col">TES</th><th scope="col">TI</th></tr></thead>
+          <tbody>
+            <tr><td class="n">0</td><td class="n">0,000</td><td class="n">1,000</td><td class="n">1,000</td><td class="n">8,114</td><td class="n">1,000</td><td class="n">7,581</td><td class="n">8,012</td></tr>
+            <tr><td class="n">100</td><td class="n">0,108</td><td class="n">1,811</td><td class="n">1,054</td><td class="n">7,835</td><td class="n">0,966</td><td class="n">7,332</td><td class="n">7,610</td></tr>
+            <tr><td class="n">200</td><td class="n">0,216</td><td class="n">1,916</td><td class="n">1,269</td><td class="n">7,308</td><td class="n">0,901</td><td class="n">6,770</td><td class="n">7,228</td></tr>
+            <tr><td class="n">300</td><td class="n">0,324</td><td class="n">1,952</td><td class="n">1,462</td><td class="n">6,820</td><td class="n">0,840</td><td class="n">6,334</td><td class="n">6,712</td></tr>
+            <tr><td class="n">400</td><td class="n">0,432</td><td class="n">1,921</td><td class="n">1,591</td><td class="n">6,449</td><td class="n">0,795</td><td class="n">5,960</td><td class="n">6,396</td></tr>
+            <tr><td class="n">300 pedli</td><td class="n">0,324</td><td class="n">1,071</td><td class="n">0,703</td><td class="n">9,134</td><td class="n">1,126</td><td class="n">8,397</td><td class="n">9,086</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="tbl-wrap">
+        <table class="cmp">
+          <caption class="kicker" style="text-align:left;padding:12px 12px 0">B serisi · kapak kalınlık oranı t/D (kapalı kapak)</caption>
+          <thead><tr><th scope="col">t [mm]</th><th scope="col">t/D</th><th scope="col">β</th><th scope="col">w*</th><th scope="col">P_L [MPa]</th><th scope="col">Π_L</th><th scope="col">P_L / P_sil</th><th scope="col">kenar tutulması f</th></tr></thead>
+          <tbody>
+            <tr><td class="n">35</td><td class="n">0,0378</td><td class="n">0,626</td><td class="n">0,237</td><td class="n">4,885</td><td class="n">3,288</td><td class="n">0,740</td><td class="n">0,82 – 0,87</td></tr>
+            <tr><td class="n">40</td><td class="n">0,0432</td><td class="n">0,651</td><td class="n">0,252</td><td class="n">6,370</td><td class="n">3,283</td><td class="n">0,965</td><td class="n">0,78 – 0,84</td></tr>
+            <tr><td class="n">45</td><td class="n">0,0486</td><td class="n">0,672</td><td class="n">0,269</td><td class="n">8,114</td><td class="n">3,304</td><td class="n">1,230</td><td class="n">0,76 – 0,81</td></tr>
+            <tr><td class="n">50</td><td class="n">0,0540</td><td class="n">0,693</td><td class="n">0,286</td><td class="n">9,980</td><td class="n">3,291</td><td class="n">1,512</td><td class="n">0,73 – 0,78</td></tr>
+            <tr><td class="n">55</td><td class="n">0,0594</td><td class="n">0,716</td><td class="n">0,302</td><td class="n">11,840</td><td class="n">3,227</td><td class="n">1,794</td><td class="n">0,70 – 0,75</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">Kenar tutulması f: 0 basit mesnet, 1 ankastre; ilk değer gerilmeden, ikincisi çökmeden. Elastikte kenar kısmen tutulu, göçmede ise tam ankastre gibi davranıyor (Π_L ≈ von Mises ankastre değeri). Kapalı birleşik kapakta t ≈ 40,7 mm'nin üstünde kapak, kabın limitini belirlemiyor; P_sil = 6,60 MPa silindir limitidir.</p>
+      <div class="figs3">
+        <figure><button class="imgbtn" type="button" data-full="img/b_14_A_aciklik_normalizasyonu.png" data-cap="A serisi: açıklık oranı normalizasyonu"><img loading="lazy" src="img/b_14_A_aciklik_normalizasyonu.png" alt="A serisi grafiği: σ_b, W ve P_L oranlarının d/D ile değişimi"></button><figcaption>A serisi. Sol: elastik gerilme ve çökme oranları. Sağ: limit basıncı oranı.</figcaption></figure>
+        <figure><button class="imgbtn" type="button" data-full="img/b_15_B_kalinlik_normalizasyonu.png" data-cap="B serisi: kalınlık oranı normalizasyonu"><img loading="lazy" src="img/b_15_B_kalinlik_normalizasyonu.png" alt="B serisi grafiği: β ve Π_L'nin t/D ile değişimi, plaka teorisi çizgileriyle"></button><figcaption>B serisi. β plaka teorisi çizgileri von Mises karşılıklarıyla; Π_L kalınlıktan bağımsız.</figcaption></figure>
+        <figure class="wide"><button class="imgbtn" type="button" data-full="img/b_16_P_Delta_normalize.png" data-cap="Normalize P–Δ eğrileri"><img loading="lazy" src="img/b_16_P_Delta_normalize.png" alt="Normalize P–Δ eğrileri: bütün açıklık oranları tek bir ana eğri üzerinde"></button><figcaption>Normalize P–Δ: bütün açıklık oranları ve tasarım tek bir ana eğri üzerinde. TES/P_L = 0,92–0,95, TI/P_L = 0,97–0,995.</figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="enerji">
+    <div class="sec-label"><span class="kicker">Makale</span><h2>Depolanmış enerji ve güvenlik çemberi</h2><p>Makalenin formülüyle (izentropik ideal gaz, V = 1,1 m³, k = 1,4). Formül makaledeki 0,814 MJ ve 25,47 MJ değerlerini aynen veriyor.</p></div>
+    <div class="sec-body">
+      <div class="chart circ">
+        <div class="chart-head"><h3>0,5 psi aşırı basınç yarıçapı</h3><span class="small muted">Ölçekli çizim; merkez reaktör</span></div>
+        <div id="circles"></div>
+      </div>
+      <div class="tbl-wrap">
+        <table class="cmp">
+          <thead><tr><th scope="col">Senaryo</th><th scope="col">p [MPa]</th><th scope="col">E [MJ]</th><th scope="col">TNT [kg]</th><th scope="col">R [m]</th></tr></thead>
+          <tbody>
+            <tr><th scope="row"><span class="chip ref">Çalışma basıncı</span></th><td class="n">0,597</td><td class="n">0,81</td><td class="n">0,195</td><td class="n">14,5</td></tr>
+            <tr><th scope="row"><span class="chip civ">Cıvatalı: conta açılması</span></th><td class="n">1,100</td><td class="n">1,67</td><td class="n">0,400</td><td class="n">18,5</td></tr>
+            <tr><th scope="row"><span class="chip civ">Cıvatalı: TES (kapak)</span></th><td class="n">3,490</td><td class="n">6,31</td><td class="n">1,509</td><td class="n">28,8</td></tr>
+            <tr><th scope="row"><span class="chip civ">Cıvatalı: limit (kapak)</span></th><td class="n">4,086</td><td class="n">7,54</td><td class="n">1,802</td><td class="n">30,5</td></tr>
+            <tr><th scope="row"><span class="chip bir">Birleşik: TES (K1A)</span></th><td class="n">5,538</td><td class="n">10,59</td><td class="n">2,531</td><td class="n">34,2</td></tr>
+            <tr><th scope="row"><span class="chip tez">Makale: akma başlangıcı</span></th><td class="n">5,778</td><td class="n">11,10</td><td class="n">2,653</td><td class="n">34,7</td></tr>
+            <tr><th scope="row"><span class="chip bir">Birleşik: kap limiti</span></th><td class="n">6,330</td><td class="n">12,28</td><td class="n">2,936</td><td class="n">35,9</td></tr>
+            <tr><th scope="row"><span class="chip civ">Cıvatalı: kaba yırtılma tahmini</span></th><td class="n">7,622</td><td class="n">15,08</td><td class="n">3,605</td><td class="n">38,5</td></tr>
+            <tr><th scope="row"><span class="chip bir">Birleşik: kaba yırtılma tahmini</span></th><td class="n">11,809</td><td class="n">24,36</td><td class="n">5,823</td><td class="n">45,1</td></tr>
+            <tr><th scope="row"><span class="chip tez">Makale: yırtılma (silindir)</span></th><td class="n">12,300</td><td class="n">25,47</td><td class="n">6,087</td><td class="n">45,8</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">R, makaledeki 12,3 MPa / 45,8 m referansından kübik kök ölçeklemesiyle (R ~ W^(1/3)) hesaplandı. Limit basıncı (σy ile) göçmenin başladığı basınçtır, yırtılma değildir. Kaba yırtılma tahmini P_L·σu/σy ile (σu = 485 MPa); makaledeki 12,3 MPa da silindir için aynı mantıkla, σu ile hesaplanmış.</p>
+    </div>
+  </section>
+
+  <section class="sec" id="dikkat">
+    <div class="sec-label"><span class="kicker">Yorum</span><h2>Dikkat edilmesi gereken noktalar</h2><p>Analizler sırasında takıldığım ve tezde açıkça yazılması gereken konular.</p></div>
+    <div class="sec-body">
+      <ul class="points">
+        <li><b>Kapak sökülebilir olmalı</b><p>Reaktör kapağı karıştırıcı, iç donanım ve muayene için açılır. Birleşik model gerçek tasarımı değil, kusursuz bir birleşimin sınır durumunu gösterir. Kapak cıvatalı kalacaksa tasarımı belirleyen cıvatalı modeldir.</p></li>
+        <li><b>Sızdırmazlık</b><p>Contasız modelde kaçak yolu yok. Cıvatalı modelde conta ≈1,1 MPa'da açılıyordu; gerçek tasarım için bu sınır geçerli.</p></li>
+        <li><b>Zayıf nokta nozullara kaydı</b><p>Birleşik kapakta kap, gövdedeki takviyesiz radyal nozullar (K1A, K1B) çevresinde göçüyor; elastikte en yüksek gerilme K2 deliğinin kenarında. Kapak ne kadar güçlendirilirse güçlendirilsin kap limiti ≈6,3–6,6 MPa'yı geçemez.</p></li>
+        <li><b>Gövde elastik tutuldu</b><p>Her yer plastikken alt-model durumlarının hepsi ≈6,14 MPa'da K1B nozulundan göçtü; açıklık ve kalınlığın etkisi görünmedi. A ve B serilerindeki P_L değerleri kapak takımının kendi limitidir.</p></li>
+        <li><b>P3 kapama itkisi</b><p>Cıvata kuvvetleri tamamen kaldırıldı. P3 açıklığını kapatan kör flanşın basınç itkisi (42,2 kN) ped üstünde duruyor; bu cıvata kuvveti değil, akışkan basıncının yükü. Verilmezse kuvvet dengesi bozulur.</p></li>
+        <li><b>Conta yuvası</b><p>Contanın yerine aynı ölçüde çelik dolgu halkası kondu. Dış tarafta 1,5 × 3 mm'lik kapalı bir cep kaldı. Dolgu köşelerindeki tepe değerler (VM 75,8, σ1 97,3 MPa) tekil; tasarımda kullanılmaz.</p></li>
+        <li><b>Flanş 4 mm yükseltildi</b><p>Kapak altı ile flanş üstü arasındaki boşluğu kapatmak için flanş dış halkası z = 69,5'ten 73,5'e uzatıldı. Ana çizime dokunulmadı.</p></li>
+        <li><b>a ve t seçimi</b><p>Normalize sonuçlar a = 463 mm ve t = 45 mm ile hesaplandı. Cıvatalı model için doğal seçim a ≈ 470 mm. a'daki %1,5'lik fark Π_L'yi %3 değiştirir; t = 39 alınırsa Π_L 1,33 kat büyük çıkar.</p></li>
+        <li><b>P3 pedi ağır olabilir</b><p>Pedli kapak, deliksiz kapaktan bile %13 daha yüksek limitli ve daha az çöküyor. UG-37/39 alan yöntemiyle daha hafif bir ped yeterli olabilir.</p></li>
+        <li><b>Workbench sonucuyla benzerlik</b><p>Workbench modeli her şeyi yapıştırdığı için aslında birleşik bir modeldir: 68,9 MPa ve 0,41 mm. Birleşik APDL modeli 76,9 MPa ve 0,31 mm veriyor. Bu yakınlık kısmen tesadüf; Workbench modelinde basınç ters, yükler dengesiz ve mesnet yoktu.</p></li>
+        <li><b>Küçük yer değiştirme</b><p>Limit analizleri büyük şekil değiştirme etkisi olmadan (NLGEOM kapalı) ve kaba ağla yapıldı. Düz kapakta zar etkisi ihmal edildiği için sonuç güvenli taraftadır.</p></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="sec" id="dosyalar">
+    <div class="sec-label"><span class="kicker">Kabuller</span><h2>Sınırlamalar</h2><p>İki analizde de geçerli olan basitleştirmeler.</p></div>
+    <div class="sec-body">
+      <div class="prose small">
+        <p>İki analiz için de geçerli: conta çelik kabul edildi; kaynaklar yapışık temasla idealize edildi; korozyon payı (3 mm), tasarım sıcaklığı (190 °C), yarım boru serpantin, karıştırıcı, ağırlık ve nozul dış yükleri dahil değil. Cıvata ön yükü (≈33 kN) bir varsayım. Bu çalışma bir ön değerlendirmedir; resmî uygunluk için onaylı hesap raporu gerekir.</p>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot">Hazırlayan: Muhammet Hanifi Dikici · Ekim 2026 · Görseller ANSYS MAPDL çıktılarıdır.</p>
+</main>
+
+<div class="lb" id="lb" hidden role="dialog" aria-modal="true" aria-label="Büyütülmüş görsel">
+  <img id="lb-img" alt="">
+  <div class="lb-cap"><span id="lb-cap"></span><button type="button" id="lb-close">Kapat (Esc)</button></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+  "use strict";
+  const fmt = (v, d) => v.toLocaleString("tr-TR", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ------------------------------------------------------------------ büyütme */
+  const lb = document.getElementById("lb"), lbImg = document.getElementById("lb-img"), lbCap = document.getElementById("lb-cap");
+  let lbReturn = null;
+  function openLb(src, cap, from) { lbImg.src = src; lbImg.alt = cap; lbCap.textContent = cap; lb.hidden = false; lbReturn = from; document.getElementById("lb-close").focus(); }
+  function closeLb() { lb.hidden = true; lbImg.removeAttribute("src"); if (lbReturn) lbReturn.focus(); }
+  document.getElementById("lb-close").addEventListener("click", closeLb);
+  lb.addEventListener("click", (e) => { if (e.target === lb) closeLb(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !lb.hidden) closeLb(); });
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest(".imgbtn");
+    if (b) openLb(b.dataset.full, b.dataset.cap || "", b);
+  });
+
+  /* ------------------------------------------------------------------ görsel çiftleri */
+  const PAIRS = [
+    { ad: "İzometrik", c: "c_01_vm_izometrik.png", b: "b_01_birlesik_vm_izometrik.png", cc: "Von Mises, ön yük + 0,597 MPa (ölçek 0–135)", bc: "Von Mises, 0,597 MPa (ölçek 0–80)", not: "Ölçekler farklı. Cıvatalıda kapak ve flanş cıvata delikleri çevresinde yeşil-sarı; birleşikte kapak mavi." },
+    { ad: "Yarım kesit", c: "c_02_vm_yarim_kesit.png", b: "b_02_birlesik_vm_yarim_kesit.png", cc: "Von Mises, yarım kesit", bc: "Von Mises, yarım kesit (y = 0)", not: "Birleşik kapakta en yüksek gerilmeler kapaktan gövdedeki nozullara kayıyor." },
+    { ad: "Kapak–conta–flanş", c: "c_03_vm_flans_conta_kapak_kesit.png", b: "b_03_birlesik_kapak_dolgu_flans_kesit.png", cc: "Flanş / conta / kapak / gövde ucu, cıvata ekseninden kesit (0–100)", bc: "Kapak / dolgu halkası / flanş / gövde ucu, θ = 180° (0–60)", not: "Cıvatalıda kapak altıyla flanş arasında 4 mm boşluk ve cıvata deliği görülüyor. Birleşikteki kırmızı şerit dolgu halkasının kabın içinden görülen iç yüzü: köşe tekilliği, hata değil." },
+    { ad: "Kapak üstten", c: "c_04_vm_kapak_ustten.png", b: "b_04_birlesik_kapak_ustten.png", cc: "Kapak ve P3 pedi, üstten", bc: "Kapak ve P3 pedi, üstten", not: "İki modelde de en yüksek kapak gerilmesi P3 pedinin kenarında; cıvatalıda değerler iki katından fazla." },
+    { ad: "Kafa–gövde geçişi", c: "c_05_vm_kafa_govde_gecisi.png", b: "b_05_birlesik_kafa_govde_gecisi.png", cc: "Alt kafa–gövde geçişi", bc: "Alt kafa–gövde geçişi (0–60)", not: "Kapaktan uzak bölge: iki modelde de aynı (knuckle PL+Pb 36,6 MPa)." },
+    { ad: "K2 nozulu", c: "c_07_vm_K2_nozulu.png", b: "b_06_birlesik_K2_nozulu.png", cc: "K2 nozulu", bc: "K2 nozulu (0–80)", not: "Birleşik modelde gövdenin en yüksek doğrusallaştırılmış gerilmesi burada: delik kenarında PL+Pb 80,3 MPa." },
+    { ad: "Destek ayağı", c: "c_08_vm_destek_ayagi.png", b: "b_07_birlesik_destek_ayagi.png", cc: "Destek ayağı", bc: "Destek ayağı, θ = 45° (0–45)", not: "Ayaklar radyal yönde serbest olduğu için yapay eğilme yok; en büyük değer ≈38 MPa." },
+    { ad: "Yer değiştirme", c: "c_09_yer_degistirme_500x.png", b: "b_08_birlesik_yer_degistirme_1000x.png", cc: "Toplam yer değiştirme, 500 kat büyütülmüş (en büyük 1,03 mm)", bc: "Toplam yer değiştirme, 1000 kat büyütülmüş (en büyük 0,31 mm)", not: "Büyütme oranları farklı. Cıvatalıda kapak conta çevresinde dönerek çöküyor." },
+    { ad: "Conta teması", c: "c_06_conta_temas_basinci.png", b: null, cc: "Conta temas basıncı: genişliğin yalnız dış kenarı yüklü", bc: "", not: "Birleşik modelde conta yok; yerinde yapışık çelik dolgu halkası var." },
+    { ad: "Limitte plastik bölge", c: "c_11_plastik_izometrik_3.90MPa.png", b: "b_09_limit_plastik_izometrik_5.97MPa.png", cc: "Eşdeğer plastik birim şekil değiştirme, 3,90 MPa", bc: "Eşdeğer plastik birim şekil değiştirme, 5,97 MPa", not: "Cıvatalıda akma kapakta başlıyor; birleşikte gövdedeki 270° nozullarında (K1A, K1B)." },
+    { ad: "Limitte yarım kesit", c: "c_12_plastik_yarim_kesit_3.90MPa.png", b: "b_10_limit_plastik_yarim_kesit_5.97MPa.png", cc: "Plastik bölge, yarım kesit, 3,90 MPa", bc: "Plastik bölge, yarım kesit, 5,97 MPa", not: "" },
+    { ad: "Limitte kapak", c: "c_14_plastik_kapak_4.09MPa_limit.png", b: "b_12_limit_kapak_6.33MPa.png", cc: "Kapak, 4,09 MPa (limit): ped dışı neredeyse tamamen akıyor", bc: "Kapak, 6,33 MPa (kap limiti): en büyük %0,6", not: "Aynı renk ölçeği (0–0,02). Cıvatalı kapak göçüyor; birleşik kapak kap limitinde bile neredeyse elastik." },
+    { ad: "P–Δ eğrileri", c: "c_10_P_Delta_TES_TI.png", b: "b_13_kap_limit_P_Delta.png", cc: "Cıvatalı: kapak, gövde ve kafa eğrileri", bc: "Birleşik: K1A, gövde ve kafa eğrileri", not: "TES/TI, göçen bölgenin eğrisinden okunur: cıvatalıda kapak, birleşikte K1A nozulu." }
+  ];
+  const nav = document.getElementById("pairs-nav"), pairEl = document.getElementById("pair"), pairNote = document.getElementById("pair-note");
+  function fig(src, cap, cls, label) {
+    if (!src) return '<figure><span class="chip ' + cls + '">' + label + '</span><div class="empty">Bu modelde karşılığı yok</div><figcaption>' + cap + '</figcaption></figure>';
+    return '<figure><span class="chip ' + cls + '">' + label + '</span><button class="imgbtn" type="button" data-full="img/' + src + '" data-cap="' + label + ': ' + cap + '"><img loading="lazy" src="img/' + src + '" alt="' + label + ': ' + cap + '"></button><figcaption>' + cap + '</figcaption></figure>';
+  }
+  function showPair(i) {
+    const p = PAIRS[i];
+    nav.querySelectorAll("button").forEach((b, j) => { b.setAttribute("aria-selected", String(j === i)); b.tabIndex = j === i ? 0 : -1; });
+    pairEl.innerHTML = fig(p.c, p.cc, "civ", "Cıvatalı") + fig(p.b, p.bc || "Birleşik modelde conta yok.", "bir", "Birleşik");
+    pairNote.textContent = p.not || "";
+    pairNote.hidden = !p.not;
+  }
+  PAIRS.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.setAttribute("role", "tab"); b.textContent = p.ad; b.id = "pair-" + i;
+    b.addEventListener("click", () => showPair(i));
+    b.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+        const n = (i + (e.key === "ArrowRight" ? 1 : PAIRS.length - 1)) % PAIRS.length;
+        showPair(n); nav.children[n].focus();
+      }
+    });
+    nav.appendChild(b);
+  });
+  showPair(0);
+
+  /* ------------------------------------------------------------------ basınç merdiveni */
+  const LAD = [
+    { ad: "Çalışma basıncı", v: 0.597, m: "ref", d: "Tez ve makaledeki tasarım/çalışma basıncı." },
+    { ad: "Cıvatalı: conta açılması", v: 1.1, m: "civ", d: "Conta–kapak teması açılıyor; kapalı conta oranı 0,4 MPa'da %33,8, 1,1 MPa'da %2,7. Sızdırmazlık sınırı." },
+    { ad: "Cıvatalı: TES (kapak)", v: 3.49, m: "civ", d: "Kapak eğilme çökmesi eğrisinden, iki kat elastik eğim yöntemiyle." },
+    { ad: "Cıvatalı: limit (kapak göçüyor)", v: 4.086, m: "civ", d: "Son yakınsayan basınç; kapak P3 pedi çevresinde plastik mafsalla göçüyor." },
+    { ad: "Birleşik: TES (K1A nozulu)", v: 5.538, m: "bir", d: "Göçme bölgesindeki ilk eğri: K1A delik kenarının radyal yer değiştirmesi." },
+    { ad: "Makale: akma başlangıcı σy·t/r", v: 5.778, m: "tez", d: "İnce cidarlı silindirde akmanın başladığı basınç; yalnız gövde için." },
+    { ad: "Birleşik: kap limiti", v: 6.33, m: "bir", d: "Tam model, bütün parçalar plastik. Göçme gövdenin 270° nozulları çevresinde." },
+    { ad: "Silindir limiti (2/√3)·σy·ln(ro/ri)", v: 6.599, m: "ref", d: "Kalın cidarlı silindirin teorik limit basıncı." },
+    { ad: "Birleşik: kapağın kendi limiti", v: 9.134, m: "bir", d: "Üst alt-model, gövde elastik tutularak; kapak takımı bu basınçta göçüyor." },
+    { ad: "Makale: yırtılma (silindir)", v: 12.3, m: "tez", d: "Makaledeki yırtılma basıncı; silindir için σu ile hesaplanmış." }
+  ];
+  const XMAX = 13;
+  const ticks = document.getElementById("ladder-ticks");
+  for (let t = 0; t <= 12; t += 2) { const s = document.createElement("span"); s.style.left = (t / XMAX * 100) + "%"; s.textContent = t + (t === 12 ? " MPa" : ""); ticks.appendChild(s); }
+  const lad = document.getElementById("ladder"), ladBox = document.getElementById("ladder-box");
+  const tip = document.createElement("div"); tip.className = "tip"; tip.hidden = true; ladBox.style.position = "relative"; ladBox.appendChild(tip);
+  const sc = { tez: "var(--c-tez)", civ: "var(--c-civ)", bir: "var(--c-bir)", ref: "var(--ink-3)" };
+  LAD.forEach((r) => {
+    const row = document.createElement("div");
+    row.className = "lrow"; row.tabIndex = 0; row.style.setProperty("--sc", sc[r.m]);
+    row.setAttribute("aria-label", r.ad + ": " + fmt(r.v, 2) + " MPa. " + r.d);
+    const pct = r.v / XMAX * 100;
+    row.innerHTML = '<span class="lab">' + r.ad + '</span><span class="track"><span class="bar" style="width:' + pct + '%"></span><span class="pt" style="left:' + pct + '%"></span></span><span class="val">' + fmt(r.v, r.v < 1 ? 3 : 2) + '</span>';
+    const show = () => {
+      tip.innerHTML = "<b>" + r.ad + "</b><br>" + fmt(r.v, 3) + " MPa · " + fmt(r.v / 0.597, 1) + " × p<br>" + r.d;
+      tip.hidden = false;
+      const br = ladBox.getBoundingClientRect(), rr = row.getBoundingClientRect(), tr = row.querySelector(".pt").getBoundingClientRect();
+      let left = tr.left - br.left + 14; const w = Math.min(280, br.width - 24);
+      if (left + w > br.width - 8) left = Math.max(8, tr.left - br.left - w - 14);
+      tip.style.left = left + "px"; tip.style.top = (rr.bottom - br.top + 4) + "px";
+    };
+    row.addEventListener("mouseenter", show); row.addEventListener("focus", show);
+    row.addEventListener("mouseleave", () => { tip.hidden = true; }); row.addEventListener("blur", () => { tip.hidden = true; });
+    lad.appendChild(row);
+  });
+
+  /* ------------------------------------------------------------------ P–Δ panelleri */
+  const PD_CIV = [[0,0],[0.2,0.224561],[0.4,0.449666],[0.7,0.787715],[1.1,1.269285],[1.5,1.843364],[1.9,2.423157],[2.3,3.05713],[2.7,3.916448],[3.1,5.310511],[3.5,7.914703],[3.9,17.571743],[3.9744,25.373003],[3.992,28.648313],[4.0096,33.382063],[4.0264,40.627573],[4.036,47.667143],[4.0464,58.285113],[4.056,73.845153],[4.0664,98.190763],[4.076,146.366213],[4.0864,297.093313]];
+  const PD_BIR = [[0,0],[0.200004,0.023427],[0.399996,0.046854],[0.699996,0.081994],[1.100004,0.128848],[1.5,0.175702],[1.89996,0.222513],[2.30004,0.269254],[2.7,0.31684],[3.09996,0.368644],[3.50004,0.424764],[3.9,0.489942],[4.29996,0.572765],[4.70004,0.686245],[5.1,0.86585],[5.49996,1.20671],[5.90004,2.15214],[5.96904,2.53009],[6.03804,3.09737],[6.14148,4.89949],[6.17676,6.12725],[6.21192,8.13783],[6.26052,14.154],[6.27048,16.5095],[6.28044,19.8274],[6.29052,24.6422],[6.30048,33.2964],[6.31044,51.2608],[6.32052,102.634],[6.33048,1269.36]];
+  function pdChart(host, o) {
+    const W = 560, H = 396, L = 52, R = 18, T = 50, B = 46;
+    const x = (d) => L + d / o.xMax * (W - L - R), y = (p) => H - B - p / o.yMax * (H - T - B);
+    const ns = "http://www.w3.org/2000/svg";
+    let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + o.title + '">';
+    s += '<text class="ttl" x="' + L + '" y="16">' + o.title + '</text>';
+    s += '<text x="' + L + '" y="34">kesikli: elastik eğim ' + fmt(o.k, 2) + ' MPa/mm · noktalı: eğim / 2 (TES doğrusu)</text>';
+    for (let p = 0; p <= o.yMax; p += 1) { s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(p) + '" y2="' + y(p) + '" stroke="var(--line-2)" stroke-width="1"/>'; s += '<text x="' + (L - 8) + '" y="' + (y(p) + 4) + '" text-anchor="end">' + p + '</text>'; }
+    o.xt.forEach((d) => { s += '<line x1="' + x(d) + '" x2="' + x(d) + '" y1="' + y(0) + '" y2="' + (y(0) + 4) + '" stroke="var(--ink-3)"/>'; s += '<text x="' + x(d) + '" y="' + (y(0) + 18) + '" text-anchor="middle">' + fmt(d, d % 1 ? 1 : 0) + '</text>'; });
+    s += '<text x="' + (W - R) + '" y="' + (H - 8) + '" text-anchor="end">Δ [mm]</text>';
+    s += '<text x="14" y="' + (T + 4) + '" transform="rotate(-90 14 ' + (T + 4) + ')" text-anchor="end">P [MPa]</text>';
+    s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(0) + '" y2="' + y(0) + '" stroke="var(--ink-3)"/>';
+    // referans çizgileri
+    s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(0.597) + '" y2="' + y(0.597) + '" stroke="var(--ink-3)" stroke-width="1" stroke-dasharray="1 3"/>';
+    s += '<text x="' + (W - R) + '" y="' + (y(0.597) - 5) + '" text-anchor="end">p = 0,597</text>';
+    s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(o.lim) + '" y2="' + y(o.lim) + '" stroke="var(--ink-2)" stroke-width="1" stroke-dasharray="6 4"/>';
+    s += '<text x="' + (W - R) + '" y="' + (y(o.lim) - 6) + '" text-anchor="end" class="lbl">limit ' + fmt(o.lim, 2) + ' MPa</text>';
+    const xe = Math.min(o.xMax, o.yMax / o.k), xt = Math.min(o.xMax, o.yMax * 2 / o.k);
+    s += '<line x1="' + x(0) + '" y1="' + y(0) + '" x2="' + x(xe) + '" y2="' + y(o.k * xe) + '" stroke="var(--ink-3)" stroke-width="1.2" stroke-dasharray="5 4"/>';
+    s += '<line x1="' + x(0) + '" y1="' + y(0) + '" x2="' + x(xt) + '" y2="' + y(o.k * xt / 2) + '" stroke="var(--ink-3)" stroke-width="1.2" stroke-dasharray="2 3"/>';
+    // eğri (xMax'ta kırpılır)
+    const pts = []; let cut = false;
+    for (let i = 0; i < o.data.length; i++) {
+      const [p, d] = o.data[i];
+      if (d <= o.xMax) pts.push([d, p]);
+      else { const [p0, d0] = o.data[i - 1]; const t = (o.xMax - d0) / (d - d0); pts.push([o.xMax, p0 + t * (p - p0)]); cut = true; break; }
+    }
+    s += '<polyline fill="none" stroke="' + o.color + '" stroke-width="2.2" stroke-linejoin="round" points="' + pts.map(([d, p]) => x(d).toFixed(1) + "," + y(p).toFixed(1)).join(" ") + '"/>';
+    pts.forEach(([d, p], i) => { if (i < pts.length - (cut ? 1 : 0)) s += '<circle cx="' + x(d).toFixed(1) + '" cy="' + y(p).toFixed(1) + '" r="2.6" fill="' + o.color + '"/>'; });
+    // TES ve TI işaretleri
+    const dT = 2 * o.tes / o.k, dI = o.ti / o.k;
+    s += '<rect x="' + (x(dT) - 5) + '" y="' + (y(o.tes) - 5) + '" width="10" height="10" fill="var(--ink)" stroke="var(--paper)" stroke-width="2"/>';
+    s += '<text class="lbl" x="' + (x(dT) + 9) + '" y="' + (y(o.tes) + 16) + '">TES ' + fmt(o.tes, 2) + '</text>';
+    s += '<path d="M' + x(dI) + ' ' + (y(o.ti) - 6.5) + ' l6.5 6.5 l-6.5 6.5 l-6.5 -6.5z" fill="var(--paper)" stroke="var(--ink)" stroke-width="1.6"/>';
+    s += '<text class="lbl" x="' + (x(dI) - 10) + '" y="' + (y(o.ti) - 10) + '" text-anchor="end">TI ' + fmt(o.ti, 2) + '</text>';
+    if (cut) s += '<text x="' + (W - R) + '" y="' + y(1.5) + '" text-anchor="end">' + o.cutNote + '</text>';
+    s += '<line id="' + o.id + '-x" x1="0" x2="0" y1="' + T + '" y2="' + y(0) + '" stroke="var(--ink-2)" stroke-width="1" visibility="hidden"/>';
+    s += '<circle id="' + o.id + '-d" r="5" fill="' + o.color + '" stroke="var(--paper)" stroke-width="2" visibility="hidden"/>';
+    s += '<rect x="' + L + '" y="' + T + '" width="' + (W - L - R) + '" height="' + (H - T - B) + '" fill="transparent" id="' + o.id + '-hit"/>';
+    s += '</svg><div class="tip" hidden id="' + o.id + '-tip"></div>';
+    host.innerHTML = s;
+    const svg = host.querySelector("svg"), hit = host.querySelector("#" + o.id + "-hit"), cx = host.querySelector("#" + o.id + "-x"), dot = host.querySelector("#" + o.id + "-d"), tp = host.querySelector("#" + o.id + "-tip");
+    function move(ev) {
+      const r = svg.getBoundingClientRect(); const sx = (ev.clientX - r.left) / r.width * W;
+      let best = null, bd = 1e9;
+      o.data.forEach(([p, d]) => { if (d <= o.xMax) { const dd = Math.abs(x(d) - sx); if (dd < bd) { bd = dd; best = [p, d]; } } });
+      if (!best) return;
+      const px = x(best[1]), py = y(best[0]);
+      cx.setAttribute("x1", px); cx.setAttribute("x2", px); cx.setAttribute("visibility", "visible");
+      dot.setAttribute("cx", px); dot.setAttribute("cy", py); dot.setAttribute("visibility", "visible");
+      tp.innerHTML = "P = " + fmt(best[0], 3) + " MPa<br>Δ = " + fmt(best[1], best[1] < 1 ? 4 : 2) + " mm";
+      tp.hidden = false;
+      const hr = host.getBoundingClientRect();
+      let lx = px / W * r.width + 12; if (lx > hr.width - 150) lx = px / W * r.width - 150;
+      tp.style.left = lx + "px"; tp.style.top = (py / H * r.height - 10) + "px";
+    }
+    function leave() { cx.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); tp.hidden = true; }
+    hit.addEventListener("pointermove", move); hit.addEventListener("pointerleave", leave);
+  }
+  pdChart(document.getElementById("pd-civ"), { id: "pdc", title: "Cıvatalı: kapak eğilme çökmesi (orta − conta hizası)", data: PD_CIV, xMax: 30, yMax: 7, k: 0.89, tes: 3.489, ti: 4.047, lim: 4.0864, color: "var(--c-civ)", xt: [0, 5, 10, 15, 20, 25, 30], cutNote: "son nokta Δ = 297 mm (sınırsız akış)" });
+  pdChart(document.getElementById("pd-bir"), { id: "pdb", title: "Birleşik: K1A nozulu delik kenarı, radyal", data: PD_BIR, xMax: 2.2, yMax: 7, k: 8.537, tes: 5.538, ti: 6.299, lim: 6.3305, color: "var(--c-bir)", xt: [0, 0.5, 1, 1.5, 2], cutNote: "son nokta Δ = 1269 mm (sınırsız akış)" });
+
+  /* ------------------------------------------------------------------ güvenlik çemberi */
+  (function circles() {
+    const C = [
+      { r: 14.5, ad: "çalışma basıncı 0,597 MPa", m: "ref" },
+      { r: 30.5, ad: "cıvatalı limit 4,09 MPa", m: "civ" },
+      { r: 35.9, ad: "birleşik limit 6,33 MPa", m: "bir" },
+      { r: 45.8, ad: "makale yırtılma 12,3 MPa", m: "tez" }
+    ];
+    const W = 720, H = 470, cx = 235, cy = 235, k = 205 / 45.8;
+    let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Güvenlik çemberi yarıçapları, ölçekli">';
+    C.slice().reverse().forEach((c) => { s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (c.r * k).toFixed(1) + '" fill="none" stroke="' + sc[c.m] + '" stroke-width="2"' + (c.m === "ref" ? ' stroke-dasharray="4 4"' : "") + '><title>R = ' + fmt(c.r, 1) + ' m · ' + c.ad + '</title></circle>'; });
+    s += '<circle cx="' + cx + '" cy="' + cy + '" r="4" fill="var(--ink)"><title>Reaktör</title></circle>';
+    const ys = [cy + 48, cy - 8, cy - 64, cy - 120];
+    C.forEach((c, i) => {
+      const a = Math.asin(Math.max(-1, Math.min(1, (cy - ys[i]) / (c.r * k))));
+      const px = cx + c.r * k * Math.cos(a), py = ys[i];
+      s += '<circle cx="' + px.toFixed(1) + '" cy="' + py + '" r="3.5" fill="' + sc[c.m] + '"/>';
+      s += '<line x1="' + px.toFixed(1) + '" y1="' + py + '" x2="458" y2="' + py + '" stroke="var(--line)" stroke-width="1"/>';
+      s += '<text x="466" y="' + (py + 4) + '">' + fmt(c.r, 1) + ' m</text><text class="s" x="520" y="' + (py + 4) + '">' + c.ad + '</text>';
+    });
+    s += '<line x1="' + cx + '" x2="' + (cx + 10 * k) + '" y1="' + (H - 14) + '" y2="' + (H - 14) + '" stroke="var(--ink)" stroke-width="2"/><text class="s" x="' + (cx + 10 * k + 8) + '" y="' + (H - 10) + '">10 m</text>';
+    s += '</svg>';
+    document.getElementById("circles").innerHTML = s;
+  })();
+
+  /* ------------------------------------------------------------------ 3D reaktör */
+  const host = document.getElementById("viewer"), fallback = document.getElementById("viewer-fallback");
+  const side = { k: document.getElementById("side-k"), h: document.getElementById("side-h"), p: document.getElementById("side-p"), list: document.getElementById("hlist") };
+  const MODES = {
+    civ: {
+      h: "Cıvatalı model", p: "Kapak 40 cıvatayla flanşa bağlı; arada çelik conta ve 4 mm boşluk var. Kapak conta dış kenarı çevresinde dönebildiği için basit mesnetli plakaya yakın davranıyor.",
+      hs: [
+        { ad: "Cıvata deliği bölgesi", v: "Pm+Pb 137,5 MPa · FS 1,89", d: "Kapakta en yüksek doğrusallaştırılmış gerilme; somun yükü bölgesi.", p: [-469.8, -115.6, 112.5], n: [0, 0, 1] },
+        { ad: "Kapak orta bölgesi", v: "Pm+Pb 97,7 MPa · FS 2,66", d: "P3 pedi kenarı dışı. Limitte plastik mafsal burada oluşuyor: kap 4,09 MPa'da kapaktan göçüyor.", p: [-100, 0, 112.5], n: [0, 0, 1] },
+        { ad: "Conta", v: "≈1,1 MPa'da açılıyor", d: "Temas genişliğin yalnız %34'ünde (dış kenar). Sızdırmazlık sınırı.", p: [-476, 0, 66], n: [-1, 0, 0] },
+        { ad: "Gövde–flanş birleşimi", v: "PL+Pb 107,8 MPa · FS 2,41", d: "Flanş alt kenarında süreksizlik gerilmesi; cıvata momenti flanşı büküyor.", p: [-460, 0, -10.5], n: [-1, 0, 0] },
+        { ad: "Kafa knuckle", v: "PL+Pb 36,6 MPa", d: "Kapaktan uzak; iki modelde aynı.", p: [-429.3, 0, -1612.9], n: [-0.87, 0, -0.5] },
+        { ad: "K2 nozulu yanı", v: "PL+Pb 34,4 MPa", d: "Delik kenarından 5 mm; iki modelde aynı.", p: [318.2, 318.2, -1385.5], n: [0.707, 0.707, 0] }
+      ]
+    },
+    bir: {
+      h: "Birleşik kapak", p: "Conta yerine yapışık çelik dolgu halkası, 4 mm boşluk kapatıldı, cıvata yok. Kapak kenarı kısmen tutulu; kapak gerilmesi yarının altına iniyor, zayıf nokta gövdedeki nozullara kayıyor.",
+      hs: [
+        { ad: "Kapak, ped kenarı", v: "Pm+Pb 44,5 MPa · FS 5,85", d: "Kapakta en büyük doğrusallaştırılmış gerilme (cıvatalıda 137,5).", p: [-100, 55, 112.5], n: [0, 0, 1] },
+        { ad: "Dolgu halkası", v: "conta yerine yapışık çelik", d: "Köşelerinde tekil tepe değerler (VM 75,8 MPa); tasarımda kullanılmaz.", p: [-476, 0, 66], n: [-1, 0, 0] },
+        { ad: "Gövde–flanş birleşimi", v: "PL+Pb 47,6 MPa · FS 5,47", d: "Cıvata momenti olmadığı için yarıdan fazla düştü (cıvatalıda 107,8).", p: [-460, 0, -10.5], n: [-1, 0, 0] },
+        { ad: "K2 deliği kenarı", v: "PL+Pb 80,3 MPa · FS 3,24", d: "Bu modelde en yüksek doğrusallaştırılmış gerilme.", p: [325.3, 325.3, -1409.7], n: [0.707, 0.707, 0] },
+        { ad: "K1B nozulu", v: "göçme bölgesi", d: "270° tarafındaki takviyesiz radyal nozul; 5,97 MPa'da akma burada başlıyor.", p: [0, -460, -155.5], n: [0, -1, 0] },
+        { ad: "K1A nozulu", v: "kap limiti 6,33 MPa · TES 5,54", d: "Göçme bölgesinin ilk eğrisi bu nozulun delik kenarından.", p: [0, -460, -1385.5], n: [0, -1, 0] },
+        { ad: "Kafa knuckle", v: "PL+Pb 36,6 MPa", d: "Kapaktan uzak; iki modelde aynı.", p: [-429.3, 0, -1612.9], n: [-0.87, 0, -0.5] }
+      ]
+    }
+  };
+  let mode = "civ";
+  function renderSide() {
+    const m = MODES[mode];
+    side.h.textContent = m.h; side.p.textContent = m.p;
+    side.list.innerHTML = "";
+    m.hs.forEach((h, i) => {
+      const li = document.createElement("li");
+      li.innerHTML = '<button type="button" style="--hc:var(--c-' + mode + ')"><span class="d"></span><b>' + h.ad + '</b><span class="v">' + h.v + '</span><span class="ds">' + h.d + '</span></button>';
+      li.querySelector("button").addEventListener("click", () => focusHs(i));
+      side.list.appendChild(li);
+    });
+  }
+  renderSide();
+  let focusHs = () => {};
+
+  if (!window.THREE || !THREE.OrbitControls) { fallback.hidden = false; wireButtonsWithout3D(); return; }
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: false });
+    if (!renderer.getContext()) throw new Error("webgl");
+  } catch (e) { fallback.hidden = false; wireButtonsWithout3D(); return; }
+
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.localClippingEnabled = true;
+  renderer.setClearColor(0x000000, 0);
+  host.insertBefore(renderer.domElement, host.firstChild);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(30, 1, 20, 40000);
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.08; controls.minDistance = 600; controls.maxDistance = 12000;
+  scene.add(new THREE.HemisphereLight(0xf4f7f9, 0x40474e, 0.9));
+  const key = new THREE.DirectionalLight(0xffffff, 0.85); key.position.set(3000, 3500, 2200); scene.add(key);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.35); fill.position.set(-2800, 800, -2000); scene.add(fill);
+
+  const D2R = Math.PI / 180;
+  const P = (x, y, z) => new THREE.Vector3(x, z, -y);     // APDL (x, y, z) → three (x, z, −y)
+  const cutPlane = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 1e6);   // açıkken x ≤ 0 yarısı kalır
+  function mats(color, cap) {
+    return [
+      new THREE.MeshStandardMaterial({ color: color, metalness: 0.25, roughness: 0.62, clippingPlanes: [cutPlane] }),
+      new THREE.MeshBasicMaterial({ color: cap, side: THREE.BackSide, clippingPlanes: [cutPlane] })
+    ];
+  }
+  const M = {
+    shell: mats(0xa7afb5, 0x6e7880), flange: mats(0x8f989f, 0x59636b), cover: mats(0xb8bfc4, 0x7f8a92),
+    pipe: mats(0xc9cfd3, 0x8c979f), lug: mats(0x858e95, 0x59636b), gasket: mats(0x2e3237, 0x1e2125),
+    filler: mats(0x5d93d6, 0x2a78d6), bolt: mats(0x40464c, 0x2a2e33)
+  };
+  function solid(geom, mp) { const g = new THREE.Group(); g.add(new THREE.Mesh(geom, mp[0])); g.add(new THREE.Mesh(geom, mp[1])); return g; }
+  function Prof() { this.a = []; }
+  Prof.prototype.c = function (r, z) { this.a.push([r, z], [r, z]); return this; };          // köşe (keskin)
+  Prof.prototype.p = function (r, z) { this.a.push([r, z]); return this; };                 // düz nokta
+  Prof.prototype.arc = function (cr, cz, R, a0, a1, n) { for (let i = 1; i < n; i++) { const a = a0 + (a1 - a0) * i / n; this.a.push([cr + R * Math.cos(a), cz + R * Math.sin(a)]); } return this; };
+  Prof.prototype.geo = function (seg) { const a = this.a.concat([this.a[0]]); return new THREE.LatheGeometry(a.map(([r, z]) => new THREE.Vector2(r, z)), seg || 144); };
+  function rectProf(r0, r1, z0, z1) { return new Prof().c(r0, z0).c(r1, z0).c(r1, z1).c(r0, z1); }
+  function hExtrude(shape, depth, zBot, mp, seg) {
+    const g = solid(new THREE.ExtrudeGeometry(shape, { depth: depth, bevelEnabled: false, curveSegments: seg || 72 }), mp);
+    g.rotation.x = -Math.PI / 2; g.position.y = zBot; return g;
+  }
+  function holeAt(sh, x, y, r) { const h = new THREE.Path(); h.absarc(x, y, r, 0, Math.PI * 2, true); sh.holes.push(h); }
+  function disc(r) { const s = new THREE.Shape(); s.absarc(0, 0, r, 0, Math.PI * 2, false); return s; }
+  const COVER_HOLES = [[150, 0, 150], [-320, 0, 44.45], [320 * Math.cos(120 * D2R), 320 * Math.sin(120 * D2R), 30.15], [320 * Math.cos(240 * D2R), 320 * Math.sin(240 * D2R), 24.15]];
+  const BOLT_ANG = []; for (let i = 0; i < 40; i++) BOLT_ANG.push((4.5 + 9 * i) * D2R);
+
+  const root = new THREE.Group(); scene.add(root);
+  // gövde
+  root.add(solid(rectProf(450, 460, -1485, 52.5).geo(), M.shell));
+  // torisferik alt kafa
+  (function head() {
+    const zs = -950.5, rk = 154.688, rkc = 295.312, ztl = -1535.5, t = 12;
+    const at = Math.atan2(ztl - zs, rkc);     // küre–knuckle teğet açısı (negatif)
+    const pr = new Prof();
+    pr.p(0, zs - (810 + t));
+    pr.arc(0, zs, 810 + t, -Math.PI / 2, at, 24);
+    pr.p(rkc + (rk + t) * Math.cos(at), ztl + (rk + t) * Math.sin(at));
+    pr.arc(rkc, ztl, rk + t, at, 0, 12);
+    pr.c(rkc + rk + t, ztl).c(462, -1485).c(450, -1485).c(450, ztl);
+    pr.arc(rkc, ztl, rk, 0, at, 12);
+    pr.p(rkc + rk * Math.cos(at), ztl + rk * Math.sin(at));
+    pr.arc(0, zs, 810, at, -Math.PI / 2, 24);
+    pr.c(0, zs - 810);
+    root.add(solid(pr.geo(), M.shell));
+  })();
+  // destek ayakları (θ = 45, 135, 225, 315)
+  [45, 135, 225, 315].forEach((ta) => {
+    const lug = new THREE.Group();
+    const sh = new THREE.Shape(); sh.absarc(0, 0, 472, (ta - 12.25) * D2R, (ta + 12.25) * D2R, false); sh.absarc(0, 0, 460, (ta + 12.25) * D2R, (ta - 12.25) * D2R, true);
+    root.add(hExtrude(sh, 370, -665.5, M.lug, 24));
+    const gs = new THREE.Shape(); gs.moveTo(467.5, -625.5); gs.lineTo(759.89, -625.5); gs.lineTo(759.89, -585.3); gs.lineTo(510.1, -335.5); gs.lineTo(467.5, -335.5); gs.closePath();
+    [60, -70].forEach((yb) => { const g = solid(new THREE.ExtrudeGeometry(gs, { depth: 10, bevelEnabled: false }), M.lug); g.position.z = yb; lug.add(g); });
+    const bs = new THREE.Shape(); bs.moveTo(470, -80); bs.lineTo(759.89, -80); bs.lineTo(759.89, 80); bs.lineTo(470, 80); bs.closePath(); holeAt(bs, 710, 0, 11);
+    const bp = solid(new THREE.ExtrudeGeometry(bs, { depth: 10, bevelEnabled: false, curveSegments: 24 }), M.lug); bp.rotation.x = -Math.PI / 2; bp.position.y = -635.5; lug.add(bp);
+    lug.rotation.y = ta * D2R; root.add(lug);
+  });
+  // radyal nozullar K1B, K1A, K2
+  [[270, -155.5], [270, -1385.5], [45, -1385.5]].forEach(([th, z]) => {
+    const g = solid(rectProf(17.01, 24.15, 0, 122).geo(48), M.pipe);
+    const dir = P(Math.cos(th * D2R), Math.sin(th * D2R), 0).normalize();
+    g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+    g.position.copy(P(450 * Math.cos(th * D2R), 450 * Math.sin(th * D2R), z));
+    root.add(g);
+  });
+  // alt kafa boruları
+  [[0, 0, 24.15, 17.01, -1902.5], [0, -200, 24.15, 17.01, -1902.5], [200, 0, 16.7, 10.35, -1908.5]].forEach(([x, y, ro, ri, z1]) => {
+    const z0 = -950.5 - Math.sqrt(810 * 810 - (x * x + y * y)) + 6;
+    const g = solid(rectProf(ri, ro, z1, z0).geo(48), M.pipe); g.position.copy(P(x, y, 0)); root.add(g);
+  });
+
+  // modele göre değişen parçalar
+  function buildVariant(bolted) {
+    const v = { root: new THREE.Group(), cover: new THREE.Group(), bolts: new THREE.Group(), seal: new THREE.Group() };
+    const ztop = bolted ? 69.5 : 73.5;
+    v.root.add(solid(new Prof().c(460, -10.5).c(516, -10.5).c(516, ztop).c(477.5, ztop).c(477.5, 64.5).c(460, 64.5).geo(), M.flange));
+    v.seal.add(solid(rectProf(463, 476, 64.5, 67.5).geo(), bolted ? M.gasket : M.filler));
+    const plate = disc(516); COVER_HOLES.forEach(([x, y, r]) => holeAt(plate, x, y, r));
+    if (bolted) BOLT_ANG.forEach((a) => holeAt(plate, 495 * Math.cos(a), 495 * Math.sin(a), 10.5));
+    v.cover.add(hExtrude(plate, 39, 73.5, M.cover, 96));
+    const spig = disc(477.5); COVER_HOLES.forEach(([x, y, r]) => holeAt(spig, x, y, r));
+    v.cover.add(hExtrude(spig, 6, 67.5, M.cover, 96));
+    const pad = new THREE.Shape(); pad.absarc(150, 0, 241.3, 0, Math.PI * 2, false); holeAt(pad, 150, 0, 150);
+    v.cover.add(hExtrude(pad, 60.4, 112.5, M.cover, 96));
+    [[320 * Math.cos(240 * D2R), 320 * Math.sin(240 * D2R), 24.15, 17.01, 259.5], [320 * Math.cos(120 * D2R), 320 * Math.sin(120 * D2R), 30.15, 21.41, 264.5], [-320, 0, 44.45, 33.37, 258]].forEach(([x, y, ro, ri, z1]) => {
+      const g = solid(rectProf(ri, ro, 67.5, z1).geo(48), M.pipe); g.position.copy(P(x, y, 0)); v.cover.add(g);
+    });
+    if (bolted) {
+      const stud = new THREE.CylinderGeometry(9.525, 9.525, 180, 16), nut = new THREE.CylinderGeometry(18.33, 18.33, 19, 6);
+      BOLT_ANG.forEach((a) => {
+        const xy = P(495 * Math.cos(a), 495 * Math.sin(a), 0);
+        const s = solid(stud, M.bolt); s.position.set(xy.x, 50, xy.z); v.bolts.add(s);
+        const n1 = solid(nut, M.bolt); n1.position.set(xy.x, 122, xy.z); n1.rotation.y = a; v.bolts.add(n1);
+        const n2 = solid(nut, M.bolt); n2.position.set(xy.x, -20, xy.z); n2.rotation.y = a; v.bolts.add(n2);
+      });
+    }
+    v.root.add(v.cover, v.bolts, v.seal);
+    return v;
+  }
+  const VAR = { civ: buildVariant(true), bir: buildVariant(false) };
+  root.add(VAR.civ.root, VAR.bir.root);
+
+  // sıcak nokta işaretleri ve etiketleri
+  const labelsEl = document.getElementById("labels");
+  const markGeo = new THREE.SphereGeometry(14, 18, 12);
+  const MK = {};
+  ["civ", "bir"].forEach((m) => {
+    const col = new THREE.Color(css(m === "civ" ? "--c-civ" : "--c-bir") || (m === "civ" ? "#eb6834" : "#2a78d6"));
+    const mat = new THREE.MeshBasicMaterial({ color: col, depthTest: true });
+    MK[m] = MODES[m].hs.map((h, i) => {
+      const pos = P(h.p[0], h.p[1], h.p[2]);
+      const nrm = P(h.n[0], h.n[1], h.n[2]).normalize();
+      const mesh = new THREE.Mesh(markGeo, mat); mesh.position.copy(pos).addScaledVector(nrm, 6); root.add(mesh);
+      const el = document.createElement("button"); el.type = "button"; el.className = "hs off"; el.style.setProperty("--hc", "var(--c-" + m + ")");
+      el.innerHTML = '<span class="d"></span><span class="t">' + h.ad + " · " + h.v.split(" · ")[0] + "</span>";
+      el.setAttribute("aria-label", h.ad + ": " + h.v);
+      el.addEventListener("click", () => focusHs(i));
+      labelsEl.appendChild(el);
+      return { h: h, pos: pos, nrm: nrm, mesh: mesh, el: el, x: h.p[0] };
+    });
+  });
+
+  // durum
+  const st = { cut: false, cutC: 1e6, cutTarget: 1e6, exp: 0, expTarget: 0, labels: true };
+  const HOME_T = new THREE.Vector3(0, -760, 0);
+  const HOME_P = new THREE.Vector3(2650, 900, 3300);
+  function home(animate) {
+    if (animate && !reduce) { fly(HOME_T.clone(), HOME_P.clone()); }
+    else { controls.target.copy(HOME_T); camera.position.copy(HOME_P); controls.update(); }
+  }
+  let flyAnim = null;
+  function fly(t, p) { flyAnim = { t0: controls.target.clone(), p0: camera.position.clone(), t1: t, p1: p, k: 0 }; }
+  focusHs = function (i) {
+    const m = MK[mode][i]; if (!m) return;
+    if (st.cut && m.x > 1) setCut(false);
+    const t = m.pos.clone();
+    const dir = m.nrm.clone().multiplyScalar(0.75).add(new THREE.Vector3(0.35, 0.35, 0.35)).normalize();
+    const p = t.clone().addScaledVector(dir, 1500);
+    if (reduce) { controls.target.copy(t); camera.position.copy(p); controls.update(); } else fly(t, p);
+  };
+  function setMode(m) {
+    mode = m;
+    document.getElementById("m-civ").setAttribute("aria-pressed", String(m === "civ"));
+    document.getElementById("m-bir").setAttribute("aria-pressed", String(m === "bir"));
+    VAR.civ.root.visible = m === "civ"; VAR.bir.root.visible = m === "bir";
+    ["civ", "bir"].forEach((k) => MK[k].forEach((o) => { o.mesh.visible = k === m; }));
+    renderSide();
+  }
+  function setCut(on) {
+    st.cut = on; document.getElementById("t-cut").setAttribute("aria-pressed", String(on));
+    if (on) { st.cutC = 700; st.cutTarget = 0; } else { st.cutTarget = 700; }
+    if (reduce) { st.cutC = on ? 0 : 1e6; }
+  }
+  document.getElementById("m-civ").addEventListener("click", () => setMode("civ"));
+  document.getElementById("m-bir").addEventListener("click", () => setMode("bir"));
+  document.getElementById("t-cut").addEventListener("click", () => setCut(!st.cut));
+  document.getElementById("t-exp").addEventListener("click", (e) => { const on = st.expTarget === 0; st.expTarget = on ? 1 : 0; e.currentTarget.setAttribute("aria-pressed", String(on)); if (reduce) st.exp = st.expTarget; });
+  document.getElementById("t-lab").addEventListener("click", (e) => { st.labels = !st.labels; e.currentTarget.setAttribute("aria-pressed", String(st.labels)); labelsEl.classList.toggle("hide", !st.labels); });
+  document.getElementById("t-home").addEventListener("click", () => home(true));
+
+  function resize() {
+    const w = host.clientWidth, h = host.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(resize).observe(host);
+  home(false); setMode("civ"); resize();
+
+  let visible = true;
+  if ("IntersectionObserver" in window) new IntersectionObserver((en) => { visible = en[0].isIntersecting; if (visible) loop(); }, { threshold: 0 }).observe(host);
+  const tmp = new THREE.Vector3(), camDir = new THREE.Vector3();
+  let raf = 0;
+  function loop() {
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(frame);
+  }
+  function frame() {
+    if (!visible) return;
+    // kesit düzlemi
+    if (st.cutC !== st.cutTarget) {
+      if (st.cutTarget === 0) st.cutC = Math.max(0, st.cutC - 28);
+      else { st.cutC = st.cutC + 28; if (st.cutC >= 700) { st.cutC = 1e6; st.cutTarget = 1e6; } }
+    }
+    cutPlane.constant = st.cutC;
+    // kapağı kaldır
+    st.exp += (st.expTarget - st.exp) * (reduce ? 1 : 0.12);
+    if (Math.abs(st.exp - st.expTarget) < 0.002) st.exp = st.expTarget;
+    ["civ", "bir"].forEach((k) => { const v = VAR[k]; v.cover.position.y = 330 * st.exp; v.bolts.position.y = 470 * st.exp; v.seal.position.y = 150 * st.exp; });
+    // kamera uçuşu
+    if (flyAnim) {
+      flyAnim.k = Math.min(1, flyAnim.k + 0.045); const e = 1 - Math.pow(1 - flyAnim.k, 3);
+      controls.target.lerpVectors(flyAnim.t0, flyAnim.t1, e); camera.position.lerpVectors(flyAnim.p0, flyAnim.p1, e);
+      if (flyAnim.k >= 1) flyAnim = null;
+    }
+    controls.update();
+    renderer.render(scene, camera);
+    // etiketler
+    const w = host.clientWidth, h = host.clientHeight;
+    const shown = [];
+    ["civ", "bir"].forEach((k) => MK[k].forEach((o) => {
+      if (k !== mode) { o.el.classList.add("off"); return; }
+      tmp.copy(o.mesh.position);
+      const lift = (o.h.p[2] > 60 && o.h.p[2] < 120 && o.nrm.y > 0.5) ? 330 * st.exp : (o.h.ad === "Conta" || o.h.ad === "Dolgu halkası") ? 150 * st.exp : 0;
+      tmp.y += lift; o.mesh.position.y = o.pos.y + o.nrm.y * 6 + lift;
+      const clipped = st.cutC < 1e5 && o.x > st.cutC + 1;
+      o.mesh.visible = !clipped;
+      camDir.copy(camera.position).sub(tmp);
+      const facing = o.nrm.dot(camDir) > 0;
+      tmp.project(camera);
+      if (clipped || tmp.z > 1) { o.el.classList.add("off"); return; }
+      o.el.classList.remove("off");
+      o.el.classList.toggle("dim", !facing);
+      o.sx = (tmp.x + 1) / 2 * w; o.sy = (1 - tmp.y) / 2 * h;
+      o.el.style.transform = "translate(" + o.sx.toFixed(1) + "px," + o.sy.toFixed(1) + "px) translate(-6px,-50%)";
+      if (facing && st.labels) shown.push(o);
+    }));
+    // metin kutuları çakışmasın: nokta yerinde kalır, metin aşağı kayar
+    shown.sort((a, b) => a.sy - b.sy);
+    const boxes = [];
+    shown.forEach((o) => {
+      const t = o.el.querySelector(".t"); const tw = t.offsetWidth, th = t.offsetHeight;
+      const x1 = o.sx + 12, x2 = x1 + tw; let dy = 0;
+      for (let n = 0; n < 8; n++) {
+        const y1 = o.sy - th / 2 + dy, y2 = y1 + th;
+        const hit = boxes.find((b) => x1 < b.x2 && x2 > b.x1 && y1 < b.y2 && y2 > b.y1);
+        if (!hit) break;
+        dy = hit.y2 + 2 - (o.sy - th / 2);
+      }
+      t.style.transform = dy ? "translateY(" + dy.toFixed(1) + "px)" : "";
+      boxes.push({ x1: x1, x2: x2, y1: o.sy - th / 2 + dy, y2: o.sy + th / 2 + dy });
+    });
+    raf = requestAnimationFrame(frame);
+  }
+  loop();
+
+  function wireButtonsWithout3D() {
+    document.querySelector(".tools").hidden = true;
+    document.querySelector(".hint").hidden = true;
+    const mb = document.createElement("div"); mb.className = "seg"; mb.style.cssText = "position:absolute;top:10px;left:10px";
+    mb.innerHTML = '<button type="button" class="civ-b" aria-pressed="true">Cıvatalı</button><button type="button" class="bir-b" aria-pressed="false">Birleşik</button>';
+    host.appendChild(mb);
+    const [a, b] = mb.querySelectorAll("button");
+    a.addEventListener("click", () => { mode = "civ"; a.setAttribute("aria-pressed", "true"); b.setAttribute("aria-pressed", "false"); renderSide(); });
+    b.addEventListener("click", () => { mode = "bir"; b.setAttribute("aria-pressed", "true"); a.setAttribute("aria-pressed", "false"); renderSide(); });
+  }
+})();
+</script>
+
+<script>
+/* ------------------------------------------------------------------ sonuçlar 3D (FE kontur görüntüleyici) */
+(function () {
+  "use strict";
+  const view = document.getElementById("fe-view");
+  if (!view) return;
+  const loadEl = document.getElementById("fe-load");
+  const fmt = (v, d) => v.toLocaleString("tr-TR", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!window.THREE || !THREE.OrbitControls) { loadEl.textContent = "3D görünüm bu tarayıcıda açılamadı."; return; }
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); if (!renderer.getContext()) throw new Error("webgl"); }
+  catch (e) { loadEl.textContent = "3D görünüm bu tarayıcıda açılamadı (WebGL yok)."; return; }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setClearColor(0x000000, 0);
+  view.insertBefore(renderer.domElement, view.firstChild);
+  const canvas = renderer.domElement;
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(30, 1, 5, 40000);
+  scene.add(camera);
+  const controls = new THREE.OrbitControls(camera, canvas);
+  controls.enableDamping = true; controls.dampingFactor = 0.08; controls.minDistance = 120; controls.maxDistance = 12000;
+  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+  const head = new THREE.DirectionalLight(0xffffff, 0.42); head.position.set(0.4, 0.8, 1); camera.add(head);
+  const P = (x, y, z) => new THREE.Vector3(x, z, -y);
+
+  const RES = {
+    seqv: { ad: "von Mises", birim: "MPa", d: 1, def: 100, lo: 10, hi: 250, step: 5 },
+    s1: { ad: "En büyük asal gerilme σ1", birim: "MPa", d: 1, def: 100, lo: 10, hi: 250, step: 5 },
+    usum: { ad: "Toplam yer değiştirme", birim: "mm", d: 3, def: 1.03, lo: 0.05, hi: 1.2, step: 0.01 }
+  };
+  const MODEL_AD = { civ: "Cıvatalı", bir: "Birleşik" };
+  const ANSYS = [[0, 0, 255], [0, 178, 255], [0, 255, 255], [0, 255, 178], [0, 255, 0], [178, 255, 0], [255, 255, 0], [255, 178, 0], [255, 0, 0]];
+  const OVER = [150, 150, 150];
+  function tex(filter) {
+    const data = new Uint8Array(40);
+    ANSYS.concat([OVER]).forEach((c, i) => data.set([c[0], c[1], c[2], 255], i * 4));
+    const t = new THREE.DataTexture(data, 10, 1, THREE.RGBAFormat);
+    t.magFilter = filter; t.minFilter = filter; t.needsUpdate = true; return t;
+  }
+  const TEX_BAND = tex(THREE.NearestFilter), TEX_SMOOTH = tex(THREE.LinearFilter);
+  const mat = new THREE.MeshPhongMaterial({ map: TEX_BAND, flatShading: true, shininess: 6, side: THREE.DoubleSide });
+  const boltMat = new THREE.LineBasicMaterial({ color: 0x2b2f33 });
+
+  const st = { model: "civ", res: "seqv", half: false, def: 0, max: { seqv: 100, s1: 100, usum: 1.03 }, auto: false, band: true };
+  const DATA = {};
+  const root = new THREE.Group(); scene.add(root);
+
+  async function fetchBin(url) {
+    const r = await fetch(url); if (!r.ok) throw new Error(url + " " + r.status);
+    let buf;
+    if (url.endsWith(".txt")) {   // base64 metin olarak yayımlanan ikili veri
+      const t = atob((await r.text()).trim()), a = new Uint8Array(t.length);
+      for (let i = 0; i < t.length; i++) a[i] = t.charCodeAt(i);
+      buf = a.buffer;
+    } else buf = await r.arrayBuffer();
+    const b = new Uint8Array(buf, 0, 2);
+    if (b[0] === 0x1f && b[1] === 0x8b) {
+      if (!("DecompressionStream" in window)) throw new Error("Bu tarayıcı sıkıştırılmış veriyi açamıyor.");
+      buf = await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
+    }
+    return buf;
+  }
+  function pct(a, q) { const s = Float32Array.from(a).sort(); return s[Math.min(s.length - 1, Math.floor(q * s.length))]; }
+  function load(m) {
+    if (DATA[m]) return DATA[m].ready;
+    const D = DATA[m] = {};
+    D.ready = (async () => {
+      const meta = await (await fetch("fe/" + m + ".json")).json();
+      const buf = await fetchBin("fe/" + m + ".b64.txt");
+      const O = meta.off, n = meta.nv;
+      D.meta = meta; D.nv = n;
+      const qp = new Int16Array(buf, O.pos[0], O.pos[1]);
+      D.p0 = new Float32Array(n * 3); for (let i = 0; i < n * 3; i++) D.p0[i] = qp[i] * meta.sc.pos;
+      D.seqv = Float32Array.from(new Uint16Array(buf, O.seqv[0], O.seqv[1]), (v) => v * meta.sc.seqv);
+      D.s1 = Float32Array.from(new Int16Array(buf, O.s1[0], O.s1[1]), (v) => v * meta.sc.s1);
+      D.u = Float32Array.from(new Int16Array(buf, O.u[0], O.u[1]), (v) => v * meta.sc.u);
+      D.usum = new Float32Array(n);
+      for (let i = 0; i < n; i++) D.usum[i] = Math.hypot(D.u[3 * i], D.u[3 * i + 1], D.u[3 * i + 2]);
+      D.tri = new Uint32Array(buf, O.tri[0], O.tri[1]);
+      D.halfIdx = new Uint32Array(buf, O.half[0], O.half[1]);
+      D.tpart = new Uint8Array(buf, O.tpart[0], O.tpart[1]);
+      D.hpart = new Uint8Array(buf, O.hpart[0], O.hpart[1]);
+      const beam = new Uint32Array(buf, O.beam[0], O.beam[1]);
+      D.vpart = new Uint8Array(n).fill(255);
+      [[D.tri, D.tpart], [D.halfIdx, D.hpart]].forEach(([T, TP]) => { for (let t = 0; t < TP.length; t++) for (let k = 0; k < 3; k++) D.vpart[T[3 * t + k]] = TP[t]; });
+      D.p999 = { seqv: pct(D.seqv, 0.999), s1: pct(D.s1, 0.999), usum: pct(D.usum, 0.999) };
+      // three.js geometrileri
+      const pos = new Float32Array(n * 3);
+      D.posAttr = new THREE.BufferAttribute(pos, 3); D.posAttr.setUsage(THREE.DynamicDrawUsage);
+      D.uvAttr = new THREE.BufferAttribute(new Float32Array(n * 2), 2); D.uvAttr.setUsage(THREE.DynamicDrawUsage);
+      const mk = (idx) => { const g = new THREE.BufferGeometry(); g.setAttribute("position", D.posAttr); g.setAttribute("uv", D.uvAttr); g.setIndex(new THREE.BufferAttribute(idx, 1)); return g; };
+      D.full = new THREE.Mesh(mk(D.tri), mat); D.halfMesh = new THREE.Mesh(mk(D.halfIdx), mat);
+      const bh = [];
+      for (let i = 0; i < beam.length; i += 2) if (D.p0[3 * beam[i] + 1] <= 0.5 && D.p0[3 * beam[i + 1] + 1] <= 0.5) bh.push(beam[i], beam[i + 1]);
+      const lg = (idx) => { const g = new THREE.BufferGeometry(); g.setAttribute("position", D.posAttr); g.setIndex(new THREE.BufferAttribute(idx, 1)); return new THREE.LineSegments(g, boltMat); };
+      D.bolts = beam.length ? lg(beam) : null; D.boltsHalf = bh.length ? lg(new Uint32Array(bh)) : null;
+      D.group = new THREE.Group(); [D.full, D.halfMesh, D.bolts, D.boltsHalf].forEach((o) => { if (o) D.group.add(o); });
+      D.group.visible = false; root.add(D.group);
+      deform(m);
+    })();
+    return D.ready;
+  }
+  function cur() { const D = DATA[st.model]; return D && D.posAttr ? D : null; }
+  function curMax() { const D = cur(); return st.auto && D ? D.p999[st.res] : st.max[st.res]; }
+  function deform(m) {
+    const D = DATA[m]; if (!D || !D.posAttr) return;
+    const p = D.posAttr.array, p0 = D.p0, u = D.u, k = st.def;
+    for (let i = 0; i < D.nv; i++) { const j = 3 * i; p[j] = p0[j] + k * u[j]; p[j + 1] = p0[j + 2] + k * u[j + 2]; p[j + 2] = -(p0[j + 1] + k * u[j + 1]); }
+    D.posAttr.needsUpdate = true;
+    D.full.geometry.computeBoundingSphere(); D.halfMesh.geometry.computeBoundingSphere();
+  }
+  function colorize() {
+    const D = cur(); if (!D) return;
+    const v = D[st.res], mx = curMax(), uv = D.uvAttr.array;
+    for (let i = 0; i < D.nv; i++) {
+      let t = v[i] / mx, q;
+      if (t > 1.0005) q = 0.95;
+      else { if (t < 0) t = 0; if (t > 1) t = 1; q = st.band ? Math.min(t * 0.9, 0.8999) : (0.5 + 8 * t) / 10; }
+      uv[2 * i] = q; uv[2 * i + 1] = 0.5;
+    }
+    D.uvAttr.needsUpdate = true;
+    mat.map = st.band ? TEX_BAND : TEX_SMOOTH; mat.needsUpdate = true;
+    legend(); maxInfo(); pinsTable();
+  }
+  function showModel() {
+    Object.keys(DATA).forEach((m) => { const D = DATA[m]; if (!D.group) return; D.group.visible = m === st.model;
+      D.full.visible = !st.half; D.halfMesh.visible = st.half;
+      if (D.bolts) D.bolts.visible = !st.half; if (D.boltsHalf) D.boltsHalf.visible = st.half; });
+  }
+
+  /* lejant */
+  const lgEl = document.getElementById("fe-legend");
+  function legend() {
+    const r = RES[st.res], mx = curMax();
+    const bar = st.band ? ANSYS.map((c) => '<span style="background:rgb(' + c + ')"></span>').join("")
+      : '<span style="background:linear-gradient(to right,' + ANSYS.map((c) => "rgb(" + c + ")").join(",") + ')"></span>';
+    let ticks = "";
+    const nt = st.band ? 9 : 4;
+    for (let i = 0; i <= nt; i++) { const val = mx * i / nt; ticks += '<span style="left:' + (i / nt * 100) + '%">' + fmt(val, r.birim === "mm" ? (mx < 0.5 ? 3 : 2) : (mx < 30 ? 1 : 0)) + "</span>"; }
+    lgEl.innerHTML = '<div class="lg-t">' + MODEL_AD[st.model] + " · " + r.ad + " [" + r.birim + "]" + (st.def ? " · şekil " + st.def + "×" : "") + ' · gri: üst sınırın üstü</div><div class="lg-b">' + bar + '<span class="ov" style="background:rgb(' + OVER + ')"></span></div><div class="lg-n">' + ticks + '</div>';
+  }
+
+  /* en büyük değer bilgisi */
+  const NOT = {
+    civ: { seqv: "Conta iç kenarı; temas kenarı, tekil.", s1: "Kapak üst yüzü, P3 pedi kenarı.", usum: "Kapak ortası, P3 pedi kenarı." },
+    bir: { seqv: "K2 borusu–gövde köşesi, tekil.", s1: "Dolgu halkası köşesi, tekil.", usum: "Kapak ortası, P3 pedi kenarı." }
+  };
+  const maxEl = document.getElementById("fe-maxinfo");
+  function maxInfo() {
+    const D = cur(); if (!D) return;
+    const mm = D.meta.max[st.res], r = RES[st.res];
+    maxEl.innerHTML = '<span class="kicker">Bu modelde en büyük düğüm değeri</span><span><b>' + fmt(mm.v, r.d) + " " + r.birim + "</b> · x " + fmt(mm.x, 0) + ", y " + fmt(mm.y, 0) + ", z " + fmt(mm.z, 0) + "</span><span>" + NOT[st.model][st.res] + '</span><span><button type="button" class="fe-mini" id="fe-gomax">Bu noktaya git</button></span>';
+    document.getElementById("fe-gomax").addEventListener("click", () => { const t = P(mm.x, mm.y, mm.z); const dir = t.clone().setY(0).normalize().multiplyScalar(0.8).add(new THREE.Vector3(0, 0.45, 0)).normalize(); fly(t, t.clone().addScaledVector(dir, 650)); });
+  }
+
+  /* üzerine gelince değer */
+  const tip = document.getElementById("fe-tip");
+  const ray = new THREE.Raycaster();
+  const mouse = new THREE.Vector2(), bc = new THREE.Vector3(), pa = new THREE.Vector3(), pb = new THREE.Vector3(), pc = new THREE.Vector3();
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), new THREE.MeshBasicMaterial({ color: 0x11171b, depthTest: false }));
+  dot.renderOrder = 10; dot.visible = false; scene.add(dot);
+  function pick(ev) {
+    const D = cur(); if (!D) return null;
+    const r = canvas.getBoundingClientRect();
+    mouse.set((ev.clientX - r.left) / r.width * 2 - 1, -(ev.clientY - r.top) / r.height * 2 + 1);
+    ray.setFromCamera(mouse, camera);
+    const h = ray.intersectObject(st.half ? D.halfMesh : D.full, false)[0];
+    if (!h) return null;
+    const a = h.face.a, b = h.face.b, c = h.face.c;
+    pa.fromBufferAttribute(D.posAttr, a); pb.fromBufferAttribute(D.posAttr, b); pc.fromBufferAttribute(D.posAttr, c);
+    THREE.Triangle.getBarycoord(h.point, pa, pb, pc, bc);
+    const val = D[st.res], p0 = D.p0;
+    const w = [bc.x, bc.y, bc.z], ids = [a, b, c];
+    let v = 0, x = 0, y = 0, z = 0;
+    for (let k = 0; k < 3; k++) { v += w[k] * val[ids[k]]; x += w[k] * p0[3 * ids[k]]; y += w[k] * p0[3 * ids[k] + 1]; z += w[k] * p0[3 * ids[k] + 2]; }
+    const part = (st.half ? D.hpart : D.tpart)[h.faceIndex];
+    return { v: v, x: x, y: y, z: z, part: part, point: h.point, dist: h.distance };
+  }
+  let hoverEv = null;
+  canvas.addEventListener("pointermove", (e) => { hoverEv = e; });
+  canvas.addEventListener("pointerleave", () => { hoverEv = null; tip.hidden = true; dot.visible = false; });
+  function hover(ev) {
+    const s = pick(ev);
+    if (!s) { tip.hidden = true; dot.visible = false; return; }
+    const D = cur(), r = RES[st.res];
+    tip.innerHTML = "<b>" + fmt(s.v, r.d) + " " + r.birim + "</b> " + r.ad + "<br>" + D.meta.parts[s.part] + " · x " + fmt(s.x, 0) + ", y " + fmt(s.y, 0) + ", z " + fmt(s.z, 0) + " mm";
+    tip.hidden = false;
+    const vr = view.getBoundingClientRect();
+    let lx = ev.clientX - vr.left + 14, ly = ev.clientY - vr.top + 14;
+    if (lx + tip.offsetWidth > vr.width - 8) lx = ev.clientX - vr.left - tip.offsetWidth - 14;
+    if (ly + tip.offsetHeight > vr.height - 8) ly = ev.clientY - vr.top - tip.offsetHeight - 14;
+    tip.style.left = lx + "px"; tip.style.top = ly + "px";
+    dot.position.copy(s.point); dot.scale.setScalar(Math.max(2, s.dist * 0.004)); dot.visible = true;
+  }
+
+  /* tıklayınca nokta sabitle */
+  const pins = [];
+  const pinL = document.getElementById("fe-pinl");
+  let down = null;
+  canvas.addEventListener("pointerdown", (e) => { down = [e.clientX, e.clientY]; });
+  canvas.addEventListener("pointerup", (e) => {
+    if (down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) < 5) {
+      const s = pick(e);
+      if (s && pins.length < 12) {
+        pins.push({ x: s.x, y: s.y, z: s.z, part: s.part, idx: {} });
+        const el = document.createElement("span"); el.textContent = pins.length; pinL.appendChild(el); pins[pins.length - 1].el = el;
+        pinsTable();
+      }
+    }
+    down = null;
+  });
+  document.getElementById("fe-clear").addEventListener("click", () => { pins.length = 0; pinL.innerHTML = ""; pinsTable(); });
+  function nearest(D, pin) {
+    let best = -1, bd = 1e18, bestAny = -1, bdAny = 1e18;
+    const p0 = D.p0;
+    for (let i = 0; i < D.nv; i++) {
+      const dx = p0[3 * i] - pin.x, dy = p0[3 * i + 1] - pin.y, dz = p0[3 * i + 2] - pin.z, d = dx * dx + dy * dy + dz * dz;
+      if (d < bdAny) { bdAny = d; bestAny = i; }
+      if (D.vpart[i] === pin.part && d < bd) { bd = d; best = i; }
+    }
+    return best >= 0 ? [best, Math.sqrt(bd)] : [bestAny, Math.sqrt(bdAny)];
+  }
+  const pinsTbl = document.getElementById("fe-pins"), pinsEmpty = document.getElementById("fe-pins-empty");
+  function pinsTable() {
+    pinsTbl.hidden = pins.length === 0; pinsEmpty.hidden = pins.length > 0;
+    const r = RES[st.res];
+    const body = pinsTbl.tBodies[0]; body.innerHTML = "";
+    pins.forEach((pin, i) => {
+      let cells = "";
+      ["civ", "bir"].forEach((m) => {
+        const D = DATA[m];
+        if (!D || !D.posAttr) { cells += '<td class="n">…</td>'; return; }
+        if (!pin.idx[m]) pin.idx[m] = nearest(D, pin);
+        const [j, d] = pin.idx[m];
+        cells += '<td class="n">' + (d > 25 ? "—" : fmt(D[st.res][j], r.d)) + (d > 3 && d <= 25 ? '<span class="far">en yakın düğüm ' + fmt(d, 0) + " mm</span>" : "") + "</td>";
+      });
+      const tr = document.createElement("tr");
+      tr.innerHTML = '<td><span class="pn">' + (i + 1) + "</span></td><td>" + (cur() ? cur().meta.parts[pin.part] : "") + "</td>" + cells;
+      body.appendChild(tr);
+    });
+    if (pins.length) { const h = pinsTbl.tHead.rows[0].cells; h[2].textContent = "Cıvatalı [" + r.birim + "]"; h[3].textContent = "Birleşik [" + r.birim + "]"; }
+  }
+
+  /* hazır bakışlar */
+  const PRESETS = [
+    { ad: "Genel", t: [0, 0, -760], d: [0.62, 0.22, 0.75], r: 4700, half: false },
+    { ad: "Kapak üstten", t: [0, 0, 112], d: [0.18, 1, 0.42], r: 1900, half: false },
+    { ad: "Kapak–flanş kesiti", t: [-468, 0, 50], d: [-0.2, 0.12, -1], r: 380, half: true },
+    { ad: "Kapak kesiti", t: [-150, 0, 90], d: [0, 0.25, -1], r: 1200, half: true },
+    { ad: "K2 nozulu", t: [325, 325, -1395], d: [0.62, 0.25, -0.62], r: 650, half: false },
+    { ad: "K1A / K1B", t: [0, -460, -780], d: [0.3, 0.12, 1], r: 2700, half: false },
+    { ad: "Alt kafa", t: [0, 0, -1640], d: [0.65, -0.35, 0.68], r: 2200, half: false },
+    { ad: "Destek ayağı", t: [-420, -420, -480], d: [-0.62, 0.3, 0.7], r: 1100, half: false }
+  ];
+  const presetEl = document.getElementById("fe-presets");
+  PRESETS.forEach((p) => {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = p.ad;
+    b.addEventListener("click", () => { if (p.half !== st.half) setHalf(p.half); const t = P(p.t[0], p.t[1], p.t[2]); fly(t, t.clone().addScaledVector(new THREE.Vector3(p.d[0], p.d[1], p.d[2]).normalize(), p.r)); });
+    presetEl.appendChild(b);
+  });
+  let flyA = null;
+  function fly(t, p) { if (reduce) { controls.target.copy(t); camera.position.copy(p); controls.update(); return; } flyA = { t0: controls.target.clone(), p0: camera.position.clone(), t1: t, p1: p, k: 0 }; }
+
+  /* düğmeler */
+  function press(sel, attr, val) { document.querySelectorAll(sel).forEach((b) => b.setAttribute("aria-pressed", String(b.getAttribute(attr) === String(val)))); }
+  const defIn = document.getElementById("fe-def"), defOut = document.getElementById("fe-def-o");
+  const maxIn = document.getElementById("fe-max"), maxOut = document.getElementById("fe-max-o");
+  function syncMax() {
+    const r = RES[st.res];
+    maxIn.min = r.lo; maxIn.max = r.hi; maxIn.step = r.step; maxIn.value = st.max[st.res]; maxIn.disabled = st.auto;
+    maxOut.textContent = fmt(curMax(), r.birim === "mm" ? 2 : 0) + " " + r.birim;
+  }
+  async function setModel(m) {
+    st.model = m; press("[data-fe-model]", "data-fe-model", m);
+    if (!DATA[m] || !DATA[m].posAttr) loadEl.hidden = false;
+    try { await load(m); } catch (e) { loadEl.textContent = "Veri yüklenemedi: " + e.message; return; }
+    if (st.model !== m) return;
+    loadEl.hidden = true; deform(m); colorize(); showModel(); syncMax();
+  }
+  function setHalf(h) { st.half = h; press("[data-fe-half]", "data-fe-half", h ? 1 : 0); showModel(); }
+  document.querySelectorAll("[data-fe-model]").forEach((b) => b.addEventListener("click", () => setModel(b.dataset.feModel)));
+  document.querySelectorAll("[data-fe-res]").forEach((b) => b.addEventListener("click", () => { st.res = b.dataset.feRes; press("[data-fe-res]", "data-fe-res", st.res); syncMax(); colorize(); }));
+  document.querySelectorAll("[data-fe-half]").forEach((b) => b.addEventListener("click", () => {
+    const h = b.dataset.feHalf === "1"; setHalf(h);
+    if (h) { const t = P(-120, 0, -700); fly(t, t.clone().addScaledVector(new THREE.Vector3(-0.15, 0.2, -1).normalize(), 4300)); }
+  }));
+  let defPending = false;
+  defIn.addEventListener("input", () => {
+    st.def = +defIn.value; defOut.textContent = st.def ? st.def + "×" : "yok";
+    if (!defPending) { defPending = true; requestAnimationFrame(() => { defPending = false; deform(st.model); legend(); }); }
+  });
+  maxIn.addEventListener("input", () => { st.max[st.res] = +maxIn.value; syncMax(); colorize(); });
+  document.getElementById("fe-auto").addEventListener("change", (e) => { st.auto = e.target.checked; syncMax(); colorize(); });
+  document.getElementById("fe-band").addEventListener("change", (e) => { st.band = e.target.checked; colorize(); });
+  defOut.textContent = "yok";
+
+  /* boyut, döngü */
+  function resize() { const w = view.clientWidth, h = view.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(view); resize();
+  const HT = P(0, 0, -760); controls.target.copy(HT); camera.position.copy(HT.clone().addScaledVector(new THREE.Vector3(0.62, 0.22, 0.75).normalize(), 4700)); controls.update();
+  let visible = false, raf = 0, started = false;
+  const tmp = new THREE.Vector3();
+  function frame() {
+    if (!visible) return;
+    if (flyA) { flyA.k = Math.min(1, flyA.k + 0.05); const e = 1 - Math.pow(1 - flyA.k, 3); controls.target.lerpVectors(flyA.t0, flyA.t1, e); camera.position.lerpVectors(flyA.p0, flyA.p1, e); if (flyA.k >= 1) flyA = null; }
+    controls.update();
+    if (hoverEv) { hover(hoverEv); hoverEv = null; }
+    renderer.render(scene, camera);
+    const D = cur(), w = view.clientWidth, h = view.clientHeight;
+    pins.forEach((pin) => {
+      if (!D || !pin.idx[st.model]) { pin.el.style.display = "none"; return; }
+      const j = pin.idx[st.model][0];
+      tmp.fromBufferAttribute(D.posAttr, j).project(camera);
+      const hide = tmp.z > 1 || (st.half && pin.y > 1);
+      pin.el.style.display = hide ? "none" : "";
+      pin.el.style.left = ((tmp.x + 1) / 2 * w).toFixed(1) + "px"; pin.el.style.top = ((1 - tmp.y) / 2 * h).toFixed(1) + "px";
+    });
+    raf = requestAnimationFrame(frame);
+  }
+  const io = new IntersectionObserver((en) => {
+    visible = en[0].isIntersecting;
+    if (en[0].isIntersecting && !started) { started = true; setModel("civ").then(() => load("bir")).then(() => pinsTable()).catch(() => {}); }
+    if (visible) { cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); }
+  }, { rootMargin: "600px 0px" });
+  io.observe(view);
+  syncMax(); legend();
+})();
+</script>
+</body>
+</html>
